@@ -1,0 +1,11 @@
+# Screenshots Directory
+
+This directory contains application screenshots for documentation.
+
+Add the following screenshots:
+- dashboard.png - Dashboard overview
+- prediction.png - Spam detection interface  
+- history.png - Message history page
+- profile.png - User profile page
+- dark-mode.png - Dark mode interface
+- mobile.png - Mobile responsive design
