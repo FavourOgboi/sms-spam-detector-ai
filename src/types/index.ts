@@ -27,22 +27,48 @@ export interface PasswordChangeData {
   confirmNewPassword: string;
 }
 
+export interface ExplanationFeature {
+  feature: string;
+  importance: number;
+  contribution?: number;
+  present: boolean;
+  explanation: string;
+  method?: 'LIME' | 'SHAP' | 'COMBINED' | 'KEYWORD';
+  methods?: string[];
+}
+
 export interface PredictionResult {
   id: string;
   message: string;
   prediction: 'spam' | 'ham';
   confidence: number;
+  spamProbability?: number;
+  hamProbability?: number;
+  modelName?: string;
+  modelVersion?: string;
+  processingTimeMs?: number;
+  featureCount?: number;
+  topFeatures?: ExplanationFeature[];
   timestamp: string;
   userId: string;
+}
+
+export interface AccuracyData {
+  trainingAccuracy: number;
+  validationAccuracy: number;
+  realTimeAccuracy: number | null;
 }
 
 export interface UserStats {
   totalMessages: number;
   spamCount: number;
   hamCount: number;
-  accuracy: number;
+  accuracy?: number; // Keep for backward compatibility
+  accuracyData?: AccuracyData; // New enhanced accuracy data
   spamRate: number;
   avgConfidence: number;
+  avgProcessingTime?: number; // New field
+  modelStats?: any; // New field
   recentPredictions: PredictionResult[];
 }
 

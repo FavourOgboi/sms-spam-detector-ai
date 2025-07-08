@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { MessageSquare, Send, AlertTriangle, CheckCircle, BarChart3, History, Lightbulb } from 'lucide-react';
+import { BarChart3, History, Lightbulb, Send } from 'lucide-react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import GuardAnimation from '../components/ui/GuardAnimation';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { predictionService } from '../services/api';
 import { PredictionResult } from '../types/index';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import GuardAnimation from '../components/ui/GuardAnimation';
 
 const Predict: React.FC = () => {
   const [message, setMessage] = useState('');
@@ -152,124 +152,45 @@ const Predict: React.FC = () => {
         </form>
       </motion.div>
 
-      {/* Results */}
+      {/* Results with Explainable AI */}
       {result && (
         <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
         >
-          <div className={`px-8 py-6 ${
-            result.prediction === 'spam' 
-              ? 'bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border-b-2 border-red-200 dark:border-red-800' 
-              : 'bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-b-2 border-green-200 dark:border-green-800'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                {result.prediction === 'spam' ? (
-                  <AlertTriangle className="h-8 w-8 text-red-500" />
-                ) : (
-                  <CheckCircle className="h-8 w-8 text-green-500" />
-                )}
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {result.prediction === 'spam' ? 'SPAM DETECTED' : 'SAFE MESSAGE'}
-                  </h3>
-                  <p className={`text-sm ${
-                    result.prediction === 'spam' ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'
-                  }`}>
-                    Confidence: {(result.confidence * 100).toFixed(1)}%
-                  </p>
-                </div>
-              </div>
-              
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
-                className={`text-4xl font-bold ${
-                  result.prediction === 'spam' ? 'text-red-500' : 'text-green-500'
-                }`}
-              >
-                {(result.confidence * 100).toFixed(0)}%
-              </motion.div>
-            </div>
-          </div>
+          <ExplainableAI
+            prediction={result.prediction}
+            confidence={result.confidence}
+            spamProbability={result.spamProbability}
+            hamProbability={result.hamProbability}
+            explanations={result.topFeatures || []}
+            message={result.message}
+          />
 
-          <div className="p-8 space-y-6">
-            {/* Message Display */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Analyzed Message:</h4>
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                <p className="text-gray-900 dark:text-white whitespace-pre-wrap">{result.message}</p>
-              </div>
-            </div>
-
-            {/* Prediction Details */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Classification</p>
-                <p className={`text-lg font-semibold ${
-                  result.prediction === 'spam' ? 'text-red-500' : 'text-green-500'
-                }`}>
-                  {result.prediction.toUpperCase()}
-                </p>
-              </div>
-              
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Confidence Level</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {(result.confidence * 100).toFixed(1)}%
-                </p>
-              </div>
-              
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Analysis Time</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {new Date(result.timestamp).toLocaleTimeString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Recommendations */}
-            <div className={`p-4 rounded-lg border-l-4 ${
-              result.prediction === 'spam' 
-                ? 'bg-red-50 dark:bg-red-900/20 border-red-400' 
-                : 'bg-green-50 dark:bg-green-900/20 border-green-400'
-            }`}>
-              <h4 className={`font-medium mb-2 ${
-                result.prediction === 'spam' ? 'text-red-800 dark:text-red-300' : 'text-green-800 dark:text-green-300'
-              }`}>
-                Recommendation
-              </h4>
-              <p className={`text-sm ${
-                result.prediction === 'spam' ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'
-              }`}>
-                {result.prediction === 'spam' 
-                  ? 'This message appears to be spam. Be cautious about clicking links or responding to requests for personal information.'
-                  : 'This message appears to be legitimate. However, always exercise caution with unsolicited messages.'
-                }
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Link
-                to="/dashboard"
-                className="flex-1 flex items-center justify-center px-6 py-3 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors"
-              >
-                <BarChart3 className="h-5 w-5 mr-2" />
-                Go to Dashboard
-              </Link>
-              <Link
-                to="/history"
-                className="flex-1 flex items-center justify-center px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-              >
-                <History className="h-5 w-5 mr-2" />
-                View History
-              </Link>
-            </div>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 mt-6">
+            <Link
+              to="/dashboard"
+              className="flex-1 flex items-center justify-center px-6 py-3 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors"
+            >
+              <BarChart3 className="h-5 w-5 mr-2" />
+              Go to Dashboard
+            </Link>
+            <Link
+              to="/history"
+              className="flex-1 flex items-center justify-center px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            >
+              <History className="h-5 w-5 mr-2" />
+              View History
+            </Link>
+            <button
+              type="button"
+              onClick={resetForm}
+              className="flex-1 flex items-center justify-center px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            >
+              Analyze Another Message
+            </button>
           </div>
         </motion.div>
       )}
@@ -317,6 +238,7 @@ const Predict: React.FC = () => {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Try Sample Messages</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
+            type="button"
             onClick={() => setMessage('Congratulations! You\'ve won $1000! Click here to claim your prize: bit.ly/claim-now')}
             disabled={loading}
             className="text-left p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -328,6 +250,7 @@ const Predict: React.FC = () => {
           </button>
           
           <button
+            type="button"
             onClick={() => setMessage('Hi! Are we still meeting for lunch tomorrow at 1pm? Let me know if you need to reschedule.')}
             disabled={loading}
             className="text-left p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

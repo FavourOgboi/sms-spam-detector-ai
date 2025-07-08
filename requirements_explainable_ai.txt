@@ -1,0 +1,33 @@
+# Explainable AI Dependencies for SMS Guard
+# Install with: pip install -r requirements_explainable_ai.txt
+
+# Core ML and Data Science
+numpy>=1.21.0
+pandas>=1.3.0
+scikit-learn>=1.0.0
+
+# Explainable AI Libraries
+lime>=0.2.0.1
+shap>=0.41.0
+
+# Text Processing
+nltk>=3.7
+textblob>=0.17.1
+
+# Model Persistence
+joblib>=1.1.0
+
+# Optional: Advanced ML Models
+# xgboost>=1.6.0
+# lightgbm>=3.3.0
+
+# Optional: Deep Learning (if using neural networks)
+# tensorflow>=2.8.0
+# torch>=1.11.0
+
+# Visualization (for SHAP plots)
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# Progress bars and utilities
+tqdm>=4.64.0

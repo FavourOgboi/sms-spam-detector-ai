@@ -1,0 +1,7 @@
+{
+  "model_type": "Naive Bayes",
+  "accuracy": 0.95,
+  "training_date": "2025-07-08T00:29:19.300981",
+  "features": 47,
+  "training_samples": 200
+}

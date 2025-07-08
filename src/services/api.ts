@@ -1,12 +1,12 @@
 import axios from 'axios';
-import { 
-  User, 
-  AuthCredentials, 
-  RegisterCredentials, 
-  PredictionResult, 
-  UserStats, 
-  ApiResponse, 
-  AuthResponse 
+import {
+    ApiResponse,
+    AuthCredentials,
+    AuthResponse,
+    PredictionResult,
+    RegisterCredentials,
+    User,
+    UserStats
 } from '../types/index';
 
 // TODO: Replace with actual Flask backend URL
@@ -30,80 +30,67 @@ api.interceptors.request.use((config) => {
 
 // Authentication Services
 export const authService = {
-  // TODO: Connect to Flask /api/auth/login endpoint
-  // Expected request: POST /api/auth/login with { usernameOrEmail: string, password: string }
-  // Expected response: { success: boolean, data: { token: string, user: User }, error?: string }
+  // Flask /api/auth/login endpoint
   async login(credentials: AuthCredentials): Promise<ApiResponse<AuthResponse>> {
     try {
-      // Mock implementation - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-      
-      // Demo credentials for development testing only - remove in production
-      if ((credentials.usernameOrEmail === 'demo' || credentials.usernameOrEmail === 'demo@example.com') && credentials.password === 'demo123') {
-        const mockUser: User = {
-          id: 'demo-user-id',
-          username: 'Demo User',
-          email: 'demo@example.com',
-          profileImage: undefined, // No profile image initially
-          bio: 'Professional user of SMS Guard spam detection system',
-          memberSince: '2024-01-15',
-          isAuthenticated: true,
-          theme: 'light'
-        };
-        
-        const token = 'mock_jwt_token_' + Date.now();
+      const response = await api.post('/auth/login', {
+        usernameOrEmail: credentials.usernameOrEmail,
+        password: credentials.password
+      });
+
+      if (response.data.success) {
+        const { token, user } = response.data.data;
         localStorage.setItem('auth_token', token);
-        localStorage.setItem('user', JSON.stringify(mockUser));
-        
+        localStorage.setItem('user', JSON.stringify(user));
+
         return {
           success: true,
-          data: { token, user: mockUser }
+          data: { token, user }
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data.error || 'Login failed'
         };
       }
-      
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Login failed. Please try again.';
       return {
         success: false,
-        error: 'Invalid credentials'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Login failed. Please try again.'
+        error: errorMessage
       };
     }
   },
 
-  // TODO: Connect to Flask /api/auth/register endpoint
-  // Expected request: POST /api/auth/register with { username: string, email: string, password: string }
-  // Expected response: { success: boolean, data: { token: string, user: User }, error?: string }
+  // Flask /api/auth/register endpoint
   async register(credentials: RegisterCredentials): Promise<ApiResponse<AuthResponse>> {
     try {
-      // Mock implementation - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      
-      const mockUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
+      const response = await api.post('/auth/register', {
         username: credentials.username,
         email: credentials.email,
-        profileImage: '/pres.jpg',
-        bio: '',
-        memberSince: new Date().toISOString().split('T')[0],
-        isAuthenticated: true,
-        theme: 'light'
-      };
-      
-      const token = 'mock_jwt_token_' + Date.now();
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      
-      return {
-        success: true,
-        data: { token, user: mockUser }
-      };
-    } catch (error) {
+        password: credentials.password
+      });
+
+      if (response.data.success) {
+        const { token, user } = response.data.data;
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+
+        return {
+          success: true,
+          data: { token, user }
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data.error || 'Registration failed'
+        };
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Registration failed. Please try again.';
       return {
         success: false,
-        error: 'Registration failed. Please try again.'
+        error: errorMessage
       };
     }
   },
@@ -118,17 +105,30 @@ export const authService = {
     localStorage.removeItem('predictions');
   },
 
-  // TODO: Connect to Flask /api/auth/me endpoint
-  // Expected request: GET /api/auth/me with Authorization header
-  // Expected response: { success: boolean, data: User, error?: string }
+  // Flask /api/auth/me endpoint
   async getCurrentUser(): Promise<User | null> {
     try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        return JSON.parse(userStr);
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        return null;
       }
-      return null;
-    } catch {
+
+      const response = await api.get('/auth/me');
+
+      if (response.data.success) {
+        const user = response.data.data;
+        localStorage.setItem('user', JSON.stringify(user));
+        return user;
+      } else {
+        // Token might be invalid, clear storage
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        return null;
+      }
+    } catch (error) {
+      // Token might be invalid, clear storage
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
       return null;
     }
   }
@@ -136,47 +136,29 @@ export const authService = {
 
 // Prediction Services
 export const predictionService = {
-  // TODO: Connect to Flask /api/predict endpoint
-  // Expected request: POST /api/predict with { message: string }
-  // Expected response: { success: boolean, data: PredictionResult, error?: string }
+  // Flask /api/predict endpoint
   async predictSpam(message: string): Promise<ApiResponse<PredictionResult>> {
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate ML processing time
-      
-      // Mock prediction logic - replace with actual API call
-      const spamKeywords = ['free', 'winner', 'urgent', 'limited time', 'click now', 'congratulations', 'prize', 'claim', 'offer'];
-      const messageWords = message.toLowerCase().split(' ');
-      const spamScore = spamKeywords.filter(keyword => 
-        messageWords.some(word => word.includes(keyword))
-      ).length;
-      
-      const isSpam = spamScore > 0 || Math.random() > 0.7;
-      const confidence = Math.random() * 0.3 + (isSpam ? 0.7 : 0.8);
-      
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const result: PredictionResult = {
-        id: Math.random().toString(36).substr(2, 9),
-        message,
-        prediction: isSpam ? 'spam' : 'ham',
-        confidence: Math.round(confidence * 100) / 100,
-        timestamp: new Date().toISOString(),
-        userId: currentUser.id || 'unknown'
-      };
-      
-      // Store prediction with user isolation
-      const userPredictionsKey = `predictions_${currentUser.id}`;
-      const existingPredictions = JSON.parse(localStorage.getItem(userPredictionsKey) || '[]');
-      existingPredictions.unshift(result);
-      localStorage.setItem(userPredictionsKey, JSON.stringify(existingPredictions.slice(0, 100)));
-      
-      return {
-        success: true,
-        data: result
-      };
-    } catch (error) {
+      const response = await api.post('/predict', {
+        message: message
+      });
+
+      if (response.data.success) {
+        return {
+          success: true,
+          data: response.data.data
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data.error || 'Prediction failed'
+        };
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Prediction failed. Please try again.';
       return {
         success: false,
-        error: 'Prediction failed. Please try again.'
+        error: errorMessage
       };
     }
   }
@@ -184,169 +166,155 @@ export const predictionService = {
 
 // User Services
 export const userService = {
-  // TODO: Connect to Flask /api/user/stats endpoint
-  // Expected request: GET /api/user/stats with Authorization header
-  // Expected response: { success: boolean, data: UserStats, error?: string }
+  // Flask /api/user/stats endpoint
   async getUserStats(): Promise<ApiResponse<UserStats>> {
     try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const userPredictionsKey = `predictions_${currentUser.id}`;
-      const predictions: PredictionResult[] = JSON.parse(localStorage.getItem(userPredictionsKey) || '[]');
-      
-      const spamCount = predictions.filter(p => p.prediction === 'spam').length;
-      const hamCount = predictions.filter(p => p.prediction === 'ham').length;
-      const totalMessages = predictions.length;
-      
-      const spamRate = totalMessages > 0 ? spamCount / totalMessages : 0;
-      const avgConfidence = totalMessages > 0 
-        ? predictions.reduce((sum, p) => sum + p.confidence, 0) / totalMessages 
-        : 0;
-      
-      const stats: UserStats = {
-        totalMessages,
-        spamCount,
-        hamCount,
-        accuracy: Math.round((Math.random() * 0.1 + 0.9) * 100) / 100, // Mock accuracy
-        spamRate: Math.round(spamRate * 100) / 100,
-        avgConfidence: Math.round(avgConfidence * 100) / 100,
-        recentPredictions: predictions.slice(0, 10)
-      };
-      
-      return {
-        success: true,
-        data: stats
-      };
-    } catch (error) {
+      const response = await api.get('/user/stats');
+
+      if (response.data.success) {
+        return {
+          success: true,
+          data: response.data.data
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data.error || 'Failed to fetch user statistics'
+        };
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to fetch user statistics.';
       return {
         success: false,
-        error: 'Failed to fetch user statistics.'
+        error: errorMessage
       };
     }
   },
 
-  // TODO: Connect to Flask /api/user/predictions endpoint
-  // Expected request: GET /api/user/predictions with Authorization header
-  // Expected response: { success: boolean, data: PredictionResult[], error?: string }
+  // Flask /api/user/predictions endpoint
   async getUserPredictions(): Promise<ApiResponse<PredictionResult[]>> {
     try {
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const userPredictionsKey = `predictions_${currentUser.id}`;
-      const predictions: PredictionResult[] = JSON.parse(localStorage.getItem(userPredictionsKey) || '[]');
-      
-      return {
-        success: true,
-        data: predictions
-      };
-    } catch (error) {
+      const response = await api.get('/user/predictions');
+
+      if (response.data.success) {
+        return {
+          success: true,
+          data: response.data.data
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data.error || 'Failed to fetch predictions'
+        };
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to fetch predictions.';
       return {
         success: false,
-        error: 'Failed to fetch predictions.'
+        error: errorMessage
       };
     }
   },
 
-  // TODO: Connect to Flask /api/user/profile endpoint
-  // Expected request: PUT /api/user/profile with Authorization header and profile data
-  // Expected response: { success: boolean, data: User, error?: string }
+  // Flask /api/user/profile endpoint
   async updateProfile(profileData: Partial<User>, profileImage?: File | null): Promise<ApiResponse<User>> {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // TODO: In real implementation, handle file upload here
-      // const formData = new FormData();
-      // Object.keys(profileData).forEach(key => {
-      //   formData.append(key, profileData[key]);
-      // });
-      // if (profileImage) {
-      //   formData.append('profileImage', profileImage);
-      // }
-      // const response = await api.put('/user/profile', formData, {
-      //   headers: { 'Content-Type': 'multipart/form-data' }
-      // });
-      
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const updatedUser = { ...currentUser, ...profileData };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      
-      return {
-        success: true,
-        data: updatedUser
-      };
-    } catch (error) {
+      let response;
+
+      if (profileImage) {
+        // Handle file upload with FormData
+        const formData = new FormData();
+        Object.keys(profileData).forEach(key => {
+          const value = profileData[key as keyof User];
+          if (value !== undefined) {
+            formData.append(key, String(value));
+          }
+        });
+        formData.append('profileImage', profileImage);
+
+        response = await api.put('/user/profile', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        // Regular JSON update
+        response = await api.put('/user/profile', profileData);
+      }
+
+      if (response.data.success) {
+        const updatedUser = response.data.data;
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+
+        return {
+          success: true,
+          data: updatedUser
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data.error || 'Failed to update profile'
+        };
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to update profile.';
       return {
         success: false,
-        error: 'Failed to update profile.'
+        error: errorMessage
       };
     }
   },
 
-  // TODO: Connect to Flask /api/user/change-password endpoint
-  // Expected request: PUT /api/user/change-password with Authorization header and password data
-  // Expected response: { success: boolean, error?: string }
+  // Flask /api/user/change-password endpoint
   async changePassword(passwordData: { currentPassword: string; newPassword: string; confirmNewPassword: string }): Promise<ApiResponse<void>> {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Mock validation - in real implementation, backend would verify current password
-      if (passwordData.currentPassword !== 'demo123') {
+      const response = await api.put('/user/change-password', {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+        confirmNewPassword: passwordData.confirmNewPassword
+      });
+
+      if (response.data.success) {
+        return {
+          success: true
+        };
+      } else {
         return {
           success: false,
-          error: 'Current password is incorrect'
+          error: response.data.error || 'Failed to change password'
         };
       }
-      
-      if (passwordData.newPassword.length < 6) {
-        return {
-          success: false,
-          error: 'New password must be at least 6 characters long'
-        };
-      }
-      
-      if (passwordData.newPassword !== passwordData.confirmNewPassword) {
-        return {
-          success: false,
-          error: 'New passwords do not match'
-        };
-      }
-      
-      // In real implementation, this would update the password in the database
-      return {
-        success: true
-      };
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to change password.';
       return {
         success: false,
-        error: 'Failed to change password.'
+        error: errorMessage
       };
     }
   },
 
-  // TODO: Connect to Flask /api/user/delete endpoint
-  // Expected request: DELETE /api/user/delete with Authorization header
-  // Expected response: { success: boolean, error?: string }
+  // Flask /api/user/delete endpoint
   async deleteAccount(): Promise<ApiResponse<void>> {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const userPredictionsKey = `predictions_${currentUser.id}`;
-      
-      // Clear all user data with proper isolation
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      localStorage.removeItem(userPredictionsKey);
-      
-      return {
-        success: true
-      };
-    } catch (error) {
+      const response = await api.delete('/user/delete');
+
+      if (response.data.success) {
+        // Clear local storage after successful deletion
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+
+        return {
+          success: true
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data.error || 'Failed to delete account'
+        };
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to delete account.';
       return {
         success: false,
-        error: 'Failed to delete account.'
+        error: errorMessage
       };
     }
   }

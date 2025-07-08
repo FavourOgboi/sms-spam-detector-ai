@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Shield, MessageSquare, AlertTriangle, CheckCircle, Zap, TrendingUp, Activity, User } from 'lucide-react';
+import { AlertTriangle, CheckCircle, MessageSquare, Shield, User, Zap } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useAuth } from '../contexts/AuthContext';
 import { userService } from '../services/api';
 import { UserStats } from '../types/index';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -51,6 +51,32 @@ const Dashboard: React.FC = () => {
       confidence: prediction.confidence * 100,
       type: prediction.prediction
     })) : [];
+
+  // Get the primary accuracy to display
+  const getPrimaryAccuracy = () => {
+    if (!stats) return 0;
+
+    // If we have the new accuracyData format
+    if (stats.accuracyData) {
+      const { trainingAccuracy, validationAccuracy, realTimeAccuracy } = stats.accuracyData;
+
+      // Prefer real-time accuracy if available and has enough samples
+      if (realTimeAccuracy && stats.totalMessages >= 10) {
+        return realTimeAccuracy;
+      }
+      // Otherwise use validation accuracy
+      if (validationAccuracy) {
+        return validationAccuracy;
+      }
+      // Fallback to training accuracy
+      return trainingAccuracy;
+    }
+
+    // Fallback to old accuracy format
+    return stats.accuracy || 0.95;
+  };
+
+  const primaryAccuracy = getPrimaryAccuracy();
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
@@ -169,7 +195,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Model Accuracy</p>
-              <p className="text-3xl font-bold text-accent-500">{(stats.accuracy * 100).toFixed(1)}%</p>
+              <p className="text-3xl font-bold text-accent-500">{(primaryAccuracy * 100).toFixed(1)}%</p>
             </div>
             <div className="p-3 bg-accent-100 dark:bg-accent-900/30 rounded-lg">
               <Zap className="h-6 w-6 text-accent-500" />
@@ -235,8 +261,8 @@ const Dashboard: React.FC = () => {
                 label={{ value: 'Recent Predictions', position: 'insideBottom', offset: -5 }}
               />
               <YAxis stroke="#6B7280" />
-              <Tooltip 
-                formatter={(value, name) => [`${value.toFixed(1)}%`, 'Confidence']}
+              <Tooltip
+                formatter={(value) => [`${Number(value).toFixed(1)}%`, 'Confidence']}
                 labelFormatter={(label) => `Prediction #${label}`}
                 contentStyle={{ 
                   backgroundColor: '#1F2937', 
