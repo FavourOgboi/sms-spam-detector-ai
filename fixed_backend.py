@@ -75,15 +75,103 @@ def get_user_from_token(auth_header):
     return auth_header.replace('Bearer token_', '')
 
 def predict_spam(message):
-    """Simple spam detection"""
-    spam_words = ['free', 'win', 'winner', 'urgent', 'click', 'now', 'limited', 'offer', 'prize', 'money', 'cash']
+    """Enhanced spam detection with explanations"""
+    spam_words = ['free', 'win', 'winner', 'urgent', 'click', 'now', 'limited', 'offer', 'prize', 'money', 'cash', 'congratulations', 'call', 'text', 'stop']
     message_lower = message.lower()
-    spam_count = sum(1 for word in spam_words if word in message_lower)
-    
+
+    # Find spam words in message
+    found_words = [word for word in spam_words if word in message_lower]
+    spam_count = len(found_words)
+
     is_spam = spam_count >= 2
     confidence = min(0.6 + (spam_count * 0.1), 0.95) if is_spam else max(0.4, 0.95 - (spam_count * 0.1))
-    
-    return 'spam' if is_spam else 'ham', confidence
+
+    # Create detailed explanations
+    explanations = []
+
+    if found_words:
+        # Add explanations for found spam words
+        for word in found_words[:5]:  # Top 5 words
+            importance = 1.0 / len(found_words) if len(found_words) > 0 else 1.0
+            explanations.append({
+                'feature': word,
+                'importance': importance,
+                'present': True,
+                'explanation': f"The word '{word}' is commonly found in spam messages and increases spam probability",
+                'method': 'KEYWORD'
+            })
+
+    # Add message length analysis
+    if len(message) < 20:
+        explanations.append({
+            'feature': 'short_message',
+            'importance': 0.3,
+            'present': True,
+            'explanation': 'Very short messages are often spam or promotional content',
+            'method': 'ANALYSIS'
+        })
+    elif len(message) > 100:
+        explanations.append({
+            'feature': 'long_message',
+            'importance': 0.2,
+            'present': True,
+            'explanation': 'Longer messages are typically legitimate communications',
+            'method': 'ANALYSIS'
+        })
+
+    # Add punctuation analysis
+    exclamation_count = message.count('!')
+    if exclamation_count >= 2:
+        explanations.append({
+            'feature': 'excessive_punctuation',
+            'importance': 0.4,
+            'present': True,
+            'explanation': f'Multiple exclamation marks ({exclamation_count}) often indicate promotional content',
+            'method': 'ANALYSIS'
+        })
+
+    # Add capitalization analysis
+    caps_ratio = sum(1 for c in message if c.isupper()) / len(message) if len(message) > 0 else 0
+    if caps_ratio > 0.3:
+        explanations.append({
+            'feature': 'excessive_caps',
+            'importance': 0.5,
+            'present': True,
+            'explanation': f'High capitalization ratio ({caps_ratio:.1%}) is typical of spam messages',
+            'method': 'ANALYSIS'
+        })
+
+    # If no spam indicators, add positive indicators
+    if not explanations or not is_spam:
+        if not found_words:
+            explanations.append({
+                'feature': 'clean_content',
+                'importance': 0.8,
+                'present': True,
+                'explanation': 'No spam keywords detected in the message content',
+                'method': 'ANALYSIS'
+            })
+
+        if caps_ratio < 0.1:
+            explanations.append({
+                'feature': 'normal_capitalization',
+                'importance': 0.3,
+                'present': True,
+                'explanation': 'Normal capitalization pattern suggests legitimate communication',
+                'method': 'ANALYSIS'
+            })
+
+    # Calculate probabilities
+    spam_probability = confidence if is_spam else 1 - confidence
+    ham_probability = 1 - spam_probability
+
+    return {
+        'prediction': 'spam' if is_spam else 'ham',
+        'confidence': confidence,
+        'spam_probability': spam_probability,
+        'ham_probability': ham_probability,
+        'explanations': explanations
+    }
 
 @app.route('/api/health', methods=['GET'])
 def health():
@@ -245,28 +333,31 @@ def predict():
             return jsonify({'success': False, 'error': 'Message required'}), 400
         
         # Make prediction
-        prediction, confidence = predict_spam(message)
-        
+        prediction_result = predict_spam(message)
+
         # Save to database
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
-        
+
         pred_id = str(uuid.uuid4())
         timestamp = datetime.now().isoformat()
-        
+
         cursor.execute('''
             INSERT INTO predictions (id, user_id, message, prediction, confidence, timestamp)
             VALUES (?, ?, ?, ?, ?, ?)
-        ''', (pred_id, user_id, message, prediction, confidence, timestamp))
-        
+        ''', (pred_id, user_id, message, prediction_result['prediction'], prediction_result['confidence'], timestamp))
+
         conn.commit()
         conn.close()
-        
+
         result = {
             'id': pred_id,
             'message': message,
-            'prediction': prediction,
-            'confidence': round(confidence, 4),
+            'prediction': prediction_result['prediction'],
+            'confidence': round(prediction_result['confidence'], 4),
+            'spamProbability': round(prediction_result['spam_probability'], 4),
+            'hamProbability': round(prediction_result['ham_probability'], 4),
+            'topFeatures': prediction_result['explanations'],
             'timestamp': timestamp + 'Z',
             'userId': user_id
         }

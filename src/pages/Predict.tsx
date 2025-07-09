@@ -1,5 +1,12 @@
 import { motion } from 'framer-motion';
-import { AlertTriangle, BarChart3, CheckCircle, History, Lightbulb, Send } from 'lucide-react';
+import {
+    AlertTriangle,
+    BarChart3,
+    CheckCircle,
+    History,
+    Lightbulb,
+    Send
+} from 'lucide-react';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import GuardAnimation from '../components/ui/GuardAnimation';
@@ -232,6 +239,96 @@ const Predict: React.FC = () => {
                 </p>
               </div>
             </div>
+
+            {/* Why this prediction? */}
+            {result.topFeatures && result.topFeatures.length > 0 && (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg mr-3">
+                    <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <h4 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                    Why this prediction?
+                  </h4>
+                </div>
+
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
+                  Our AI analyzed these key patterns in your message:
+                </p>
+
+                <div className="space-y-3">
+                  {result.topFeatures.map((feature, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="flex items-start space-x-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-100 dark:border-blue-800"
+                    >
+                      <div className="flex-shrink-0">
+                        {feature.method === 'KEYWORD' && (
+                          <div className="p-1.5 bg-orange-100 dark:bg-orange-900/50 rounded-full">
+                            <svg className="h-4 w-4 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                          </div>
+                        )}
+                        {feature.method === 'ANALYSIS' && (
+                          <div className="p-1.5 bg-purple-100 dark:bg-purple-900/50 rounded-full">
+                            <svg className="h-4 w-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <h5 className="text-sm font-medium text-gray-900 dark:text-white capitalize">
+                            {feature.feature.replace(/_/g, ' ')}
+                          </h5>
+                          <div className="flex items-center space-x-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              feature.method === 'KEYWORD'
+                                ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300'
+                                : 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300'
+                            }`}>
+                              {feature.method}
+                            </span>
+                            <div className="flex items-center">
+                              <div className={`h-2 w-16 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden`}>
+                                <div
+                                  className={`h-full transition-all duration-500 ${
+                                    feature.importance > 0.7 ? 'bg-red-500' :
+                                    feature.importance > 0.4 ? 'bg-yellow-500' : 'bg-green-500'
+                                  }`}
+                                  style={{ width: `${Math.min(feature.importance * 100, 100)}%` }}
+                                />
+                              </div>
+                              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                {(feature.importance * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          {feature.explanation}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                <div className="mt-4 p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    <strong>How it works:</strong> Our AI examines multiple factors including keywords, message structure,
+                    capitalization patterns, and punctuation to determine if a message is spam or legitimate.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Recommendations */}
             <div className={`p-4 rounded-lg border-l-4 ${

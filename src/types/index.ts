@@ -27,11 +27,22 @@ export interface PasswordChangeData {
   confirmNewPassword: string;
 }
 
+export interface ExplanationFeature {
+  feature: string;
+  importance: number;
+  present: boolean;
+  explanation: string;
+  method: 'KEYWORD' | 'ANALYSIS' | 'LIME' | 'SHAP';
+}
+
 export interface PredictionResult {
   id: string;
   message: string;
   prediction: 'spam' | 'ham';
   confidence: number;
+  spamProbability?: number;
+  hamProbability?: number;
+  topFeatures?: ExplanationFeature[];
   timestamp: string;
   userId: string;
 }

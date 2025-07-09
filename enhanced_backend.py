@@ -146,70 +146,123 @@ class ExplainableAI:
         self.setup_explainers()
 
     def setup_explainers(self):
-        """Initialize LIME and SHAP explainers"""
+        """Initialize LIME and SHAP explainers with proper model integration"""
         try:
             if LIME_AVAILABLE and self.model and self.vectorizer:
                 # Create LIME text explainer
                 self.lime_explainer = lime.lime_text.LimeTextExplainer(
                     class_names=['ham', 'spam'],
                     feature_selection='auto',
-                    verbose=False
+                    verbose=False,
+                    mode='classification'
                 )
-                print("✅ LIME explainer initialized")
+                print("✅ LIME explainer initialized with trained model")
 
             if SHAP_AVAILABLE and self.model and self.vectorizer:
-                # For sklearn models, use appropriate SHAP explainer
-                if hasattr(self.model, 'predict_proba'):
-                    # Create a pipeline for SHAP
-                    if SKLEARN_AVAILABLE:
-                        self.pipeline = Pipeline([
-                            ('vectorizer', self.vectorizer),
-                            ('classifier', self.model)
-                        ])
+                # Initialize SHAP explainer based on model type
+                try:
+                    if hasattr(self.model, 'coef_'):  # Linear models (LogisticRegression, SVM)
+                        # For linear models, use LinearExplainer
+                        # Create a small background dataset
+                        background_texts = [
+                            "this is a normal message",
+                            "free money click now",
+                            "meeting tomorrow at 3pm"
+                        ]
+                        background_features = self.vectorizer.transform(background_texts)
 
-                        # Use SHAP's text explainer or model explainer
-                        if hasattr(self.model, 'coef_'):  # Linear models
-                            self.shap_explainer = shap.LinearExplainer(
-                                self.model,
-                                self.vectorizer.transform(['sample text']).toarray()
-                            )
-                        else:  # Tree-based or other models
-                            self.shap_explainer = shap.Explainer(self.model)
+                        self.shap_explainer = shap.LinearExplainer(
+                            self.model,
+                            background_features,
+                            feature_perturbation="interventional"
+                        )
+                        self.shap_type = "Linear"
+                        print("✅ SHAP Linear explainer initialized")
 
-                        print("✅ SHAP explainer initialized")
+                    elif hasattr(self.model, 'feature_importances_'):  # Tree-based models
+                        # For tree models, use TreeExplainer
+                        self.shap_explainer = shap.TreeExplainer(self.model)
+                        self.shap_type = "Tree"
+                        print("✅ SHAP Tree explainer initialized")
+
+                    else:
+                        # For other models, use KernelExplainer (slower but universal)
+                        def model_predict_proba(X):
+                            return self.model.predict_proba(X)
+
+                        # Create background dataset
+                        background_texts = ["sample text", "another sample", "background message"]
+                        background_features = self.vectorizer.transform(background_texts)
+
+                        self.shap_explainer = shap.KernelExplainer(
+                            model_predict_proba,
+                            background_features,
+                            link="logit"
+                        )
+                        self.shap_type = "Kernel"
+                        print("✅ SHAP Kernel explainer initialized")
+
+                except Exception as shap_error:
+                    print(f"⚠️  SHAP initialization error: {shap_error}")
+                    self.shap_explainer = None
+
         except Exception as e:
             print(f"⚠️  Error setting up explainers: {e}")
+            self.lime_explainer = None
+            self.shap_explainer = None
 
     def explain_prediction_lime(self, text, num_features=10):
-        """Generate LIME explanation for a prediction"""
+        """Generate genuine LIME explanation using the trained model"""
         if not self.lime_explainer or not self.model or not self.vectorizer:
             return None
 
         try:
-            # Create prediction function for LIME
+            # Create prediction function that uses the actual trained model
             def predict_fn(texts):
+                """Prediction function for LIME using the actual model"""
                 vectors = self.vectorizer.transform(texts)
-                return self.model.predict_proba(vectors)
+                probabilities = self.model.predict_proba(vectors)
+                return probabilities
 
-            # Generate explanation
+            # Generate LIME explanation using the model's learned patterns
             explanation = self.lime_explainer.explain_instance(
                 text,
                 predict_fn,
                 num_features=num_features,
-                labels=[0, 1]  # ham, spam
+                labels=[0, 1],  # ham=0, spam=1
+                num_samples=1000  # More samples for better explanation
             )
 
-            # Extract feature importance
+            # Extract feature importance from LIME's analysis
             lime_features = []
-            for feature, importance in explanation.as_list():
+            explanation_list = explanation.as_list()
+
+            # Get the actual prediction for context
+            actual_prediction = predict_fn([text])[0]
+            spam_prob = actual_prediction[1]
+
+            for feature, importance in explanation_list:
+                # Check if feature is actually present in the text
+                feature_present = feature.lower() in text.lower()
+
+                # Create detailed explanation based on LIME's analysis
+                if importance > 0:
+                    explanation_text = f"LIME identified '{feature}' as increasing spam probability by {importance:.3f}. This suggests the model learned this pattern from spam training data."
+                else:
+                    explanation_text = f"LIME identified '{feature}' as decreasing spam probability by {abs(importance):.3f}. This suggests the model associates this pattern with legitimate messages."
+
                 lime_features.append({
                     'feature': feature,
                     'importance': abs(importance),
                     'contribution': importance,
-                    'present': feature.lower() in text.lower(),
-                    'explanation': f"LIME analysis: This feature {'increases' if importance > 0 else 'decreases'} spam probability by {abs(importance):.3f}",
-                    'method': 'LIME'
+                    'present': feature_present,
+                    'explanation': explanation_text,
+                    'method': 'LIME',
+                    'confidence': abs(importance) / max([abs(imp) for _, imp in explanation_list]) if explanation_list else 0
                 })
+
+            # Sort by importance
+            lime_features.sort(key=lambda x: x['importance'], reverse=True)
 
             return lime_features
 
@@ -218,47 +271,94 @@ class ExplainableAI:
             return None
 
     def explain_prediction_shap(self, text, num_features=10):
-        """Generate SHAP explanation for a prediction"""
+        """Generate genuine SHAP explanation using the trained model"""
         if not self.shap_explainer or not self.model or not self.vectorizer:
             return None
 
         try:
-            # Transform text to features
+            # Transform text to feature vector
             features = self.vectorizer.transform([text])
 
-            # Generate SHAP values
-            if hasattr(self.shap_explainer, 'shap_values'):
-                shap_values = self.shap_explainer.shap_values(features.toarray())
+            # Generate SHAP values based on explainer type
+            if self.shap_type == "Linear":
+                # For linear models, SHAP values represent feature contributions
+                shap_values = self.shap_explainer.shap_values(features)
+                if isinstance(shap_values, list):
+                    shap_values = shap_values[1]  # Get spam class values
+                elif len(shap_values.shape) > 1 and shap_values.shape[1] > 1:
+                    shap_values = shap_values[:, 1]  # Get spam class
+
+            elif self.shap_type == "Tree":
+                # For tree models
+                shap_values = self.shap_explainer.shap_values(features)
+                if isinstance(shap_values, list):
+                    shap_values = shap_values[1]  # Get spam class values
+
+            elif self.shap_type == "Kernel":
+                # For kernel explainer (slower but works with any model)
+                shap_values = self.shap_explainer.shap_values(features, nsamples=100)
                 if isinstance(shap_values, list):
                     shap_values = shap_values[1]  # Get spam class values
             else:
-                shap_values = self.shap_explainer(features.toarray()).values
-                if len(shap_values.shape) > 2:
-                    shap_values = shap_values[:, :, 1]  # Get spam class
+                return None
 
-            # Get feature names
+            # Get feature names from vectorizer
             feature_names = self.vectorizer.get_feature_names_out()
 
-            # Get top features by absolute SHAP value
-            feature_importance = list(zip(feature_names, shap_values[0]))
-            feature_importance.sort(key=lambda x: abs(x[1]), reverse=True)
+            # Handle different SHAP value shapes
+            if len(shap_values.shape) > 1:
+                feature_contributions = list(zip(feature_names, shap_values[0]))
+            else:
+                feature_contributions = list(zip(feature_names, shap_values))
+
+            # Sort by absolute contribution (most important features first)
+            feature_contributions.sort(key=lambda x: abs(x[1]), reverse=True)
+
+            # Get actual prediction for context
+            prediction_proba = self.model.predict_proba(features)[0]
+            base_value = self.shap_explainer.expected_value if hasattr(self.shap_explainer, 'expected_value') else 0.5
 
             shap_features = []
-            for feature, importance in feature_importance[:num_features]:
-                if abs(importance) > 0.001:  # Only include meaningful features
+            max_contribution = max([abs(contrib) for _, contrib in feature_contributions]) if feature_contributions else 1
+
+            for feature, contribution in feature_contributions[:num_features]:
+                if abs(contribution) > 0.001:  # Only include meaningful contributions
+                    # Check if feature is present in text
+                    feature_present = feature.lower() in text.lower()
+
+                    # Create detailed explanation
+                    if contribution > 0:
+                        explanation_text = f"SHAP analysis: '{feature}' contributes +{contribution:.3f} toward spam classification. The model learned this pattern increases spam likelihood."
+                    else:
+                        explanation_text = f"SHAP analysis: '{feature}' contributes {contribution:.3f} toward ham classification. The model learned this pattern indicates legitimate messages."
+
+                    # Add context about the contribution magnitude
+                    contribution_strength = abs(contribution) / max_contribution
+                    if contribution_strength > 0.7:
+                        strength_desc = "strong"
+                    elif contribution_strength > 0.3:
+                        strength_desc = "moderate"
+                    else:
+                        strength_desc = "weak"
+
                     shap_features.append({
                         'feature': feature,
-                        'importance': abs(importance),
-                        'contribution': importance,
-                        'present': feature.lower() in text.lower(),
-                        'explanation': f"SHAP analysis: This feature contributes {importance:.3f} to the spam score",
-                        'method': 'SHAP'
+                        'importance': abs(contribution),
+                        'contribution': contribution,
+                        'present': feature_present,
+                        'explanation': explanation_text,
+                        'method': 'SHAP',
+                        'strength': strength_desc,
+                        'base_value': base_value,
+                        'confidence': contribution_strength
                     })
 
             return shap_features
 
         except Exception as e:
             print(f"SHAP explanation error: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def get_comprehensive_explanation(self, text, num_features=10):
@@ -314,49 +414,87 @@ class MLModelInterface:
         self.update_model_performance()
     
     def load_model(self):
-        """Load your custom ML model - replace this with your model loading code"""
+        """Load trained ML model with explainable AI capabilities"""
         try:
-            # Try to load your custom model
-            model_path = 'models/spam_model.pkl'
-            vectorizer_path = 'models/vectorizer.pkl'
-            
-            if os.path.exists(model_path) and os.path.exists(vectorizer_path):
-                with open(model_path, 'rb') as f:
-                    self.model = pickle.load(f)
-                with open(vectorizer_path, 'rb') as f:
-                    self.vectorizer = pickle.load(f)
+            # Try to load the trained model (joblib format)
+            vectorizer_path = 'models/tfidf_vectorizer.joblib'
+            metadata_path = 'models/model_metadata.json'
 
-                # Load model metadata if available
-                metadata_path = 'models/model_metadata.json'
+            # Look for any trained model file
+            model_files = [
+                'models/spam_model_logistic_regression.joblib',
+                'models/spam_model_random_forest.joblib',
+                'models/spam_model_naive_bayes.joblib',
+                'models/spam_model.pkl'  # Fallback to pickle
+            ]
+
+            model_path = None
+            for path in model_files:
+                if os.path.exists(path):
+                    model_path = path
+                    break
+
+            if model_path and os.path.exists(vectorizer_path):
+                # Load model
+                if model_path.endswith('.joblib'):
+                    self.model = joblib.load(model_path)
+                    self.vectorizer = joblib.load(vectorizer_path)
+                else:
+                    # Fallback to pickle
+                    with open(model_path, 'rb') as f:
+                        self.model = pickle.load(f)
+                    with open(vectorizer_path.replace('.joblib', '.pkl'), 'rb') as f:
+                        self.vectorizer = pickle.load(f)
+
+                # Load model metadata
                 if os.path.exists(metadata_path):
                     with open(metadata_path, 'r') as f:
                         metadata = json.load(f)
-                        self.model_name = metadata.get('model_name', 'custom_ml_model')
-                        self.model_version = metadata.get('model_version', '2.0')
-                        self.training_accuracy = metadata.get('training_accuracy', 0.95)
-                        self.validation_accuracy = metadata.get('validation_accuracy', 0.93)
-                        print(f"✅ Model metadata loaded: {self.model_name} v{self.model_version}")
-                        print(f"   Training Accuracy: {self.training_accuracy:.3f}")
-                        print(f"   Validation Accuracy: {self.validation_accuracy:.3f}")
+                        self.model_name = metadata.get('model_name', 'Trained ML Model')
+                        self.model_version = metadata.get('version', '1.0')
+                        self.training_accuracy = metadata.get('accuracy', 0.95)
+                        self.validation_accuracy = metadata.get('cv_mean', 0.93)
+                        self.feature_count = metadata.get('feature_count', 1000)
+
+                        print(f"✅ Model loaded: {self.model_name} v{self.model_version}")
+                        print(f"   Type: {metadata.get('model_type', 'Unknown')}")
+                        print(f"   Accuracy: {self.training_accuracy:.3f}")
+                        print(f"   CV Score: {self.validation_accuracy:.3f}")
+                        print(f"   Features: {self.feature_count}")
+
+                        # Check explainable AI availability
+                        lime_available = metadata.get('lime_available', False)
+                        shap_available = metadata.get('shap_available', False)
+                        print(f"   Explainable AI: LIME={lime_available}, SHAP={shap_available}")
                 else:
-                    self.model_name = "custom_ml_model"
-                    self.model_version = "2.0"
-                    self.training_accuracy = 0.95  # Default
-                    self.validation_accuracy = 0.93  # Default
+                    self.model_name = "Trained ML Model"
+                    self.model_version = "1.0"
+                    self.training_accuracy = 0.95
+                    self.validation_accuracy = 0.93
+                    self.feature_count = len(self.vectorizer.vocabulary_) if hasattr(self.vectorizer, 'vocabulary_') else 1000
 
-                print("✅ Custom ML model loaded successfully")
+                print("✅ Trained ML model loaded successfully")
 
-                # Initialize Explainable AI
+                # Initialize Explainable AI with the trained model
                 if LIME_AVAILABLE or SHAP_AVAILABLE:
                     self.explainer = ExplainableAI(self.model, self.vectorizer)
-                    print("✅ Explainable AI initialized with LIME/SHAP")
+                    print("✅ Explainable AI initialized with trained model")
+                    print(f"   Model type: {type(self.model).__name__}")
+                    print(f"   Features: {len(self.vectorizer.vocabulary_) if hasattr(self.vectorizer, 'vocabulary_') else 'Unknown'}")
                 else:
-                    print("⚠️  LIME/SHAP not available, using fallback explanations")
+                    print("⚠️  LIME/SHAP not available")
+                    print("   Install with: pip install lime shap")
+
             else:
-                print("⚠️  Custom model not found, using keyword-based fallback")
+                print("⚠️  Trained model not found")
+                print("   Run: python train_explainable_model.py")
+                print("   Using keyword-based fallback")
+
         except Exception as e:
-            print(f"⚠️  Failed to load custom model: {e}")
+            print(f"⚠️  Failed to load trained model: {e}")
             print("   Using keyword-based fallback")
+            import traceback
+            traceback.print_exc()
     
     def predict(self, message):
         """Make prediction with detailed results"""
@@ -841,6 +979,171 @@ def get_me():
         print(f"Get me error: {e}")
         return jsonify({'success': False, 'error': 'Failed to get user'}), 500
 
+@app.route('/api/user/profile', methods=['PUT'])
+def update_profile():
+    """Update user profile information"""
+    try:
+        user_id = get_user_from_token(request.headers.get('Authorization', ''))
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Invalid token'}), 401
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip().lower()
+        bio = data.get('bio', '').strip()
+        profile_image = data.get('profileImage', '').strip()
+
+        if not username or not email:
+            return jsonify({'success': False, 'error': 'Username and email are required'}), 400
+
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+
+        # Check if username or email already exists for other users
+        cursor.execute('''
+            SELECT id FROM users
+            WHERE (username = ? OR email = ?) AND id != ?
+        ''', (username, email, user_id))
+
+        if cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'error': 'Username or email already exists'}), 409
+
+        # Update user profile
+        cursor.execute('''
+            UPDATE users
+            SET username = ?, email = ?, bio = ?, profile_image = ?
+            WHERE id = ?
+        ''', (username, email, bio, profile_image, user_id))
+
+        if cursor.rowcount == 0:
+            conn.close()
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        # Get updated user data
+        cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+        user = cursor.fetchone()
+        conn.commit()
+        conn.close()
+
+        if user:
+            user_data = {
+                'id': user[0],
+                'username': user[1],
+                'email': user[2],
+                'profileImage': user[6] or '',
+                'bio': user[4] or '',
+                'memberSince': user[7][:10] if user[7] else datetime.now().strftime('%Y-%m-%d'),
+                'isAuthenticated': True,
+                'theme': user[5] or 'light'
+            }
+
+            return jsonify({'success': True, 'data': user_data}), 200
+        else:
+            return jsonify({'success': False, 'error': 'Failed to get updated user data'}), 500
+
+    except Exception as e:
+        print(f"Update profile error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to update profile'}), 500
+
+@app.route('/api/user/password', methods=['PUT'])
+def change_password():
+    """Change user password"""
+    try:
+        user_id = get_user_from_token(request.headers.get('Authorization', ''))
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Invalid token'}), 401
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+        current_password = data.get('currentPassword', '')
+        new_password = data.get('newPassword', '')
+
+        if not current_password or not new_password:
+            return jsonify({'success': False, 'error': 'Current and new passwords are required'}), 400
+
+        if len(new_password) < 6:
+            return jsonify({'success': False, 'error': 'New password must be at least 6 characters'}), 400
+
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+
+        # Verify current password
+        cursor.execute('SELECT password_hash FROM users WHERE id = ?', (user_id,))
+        user = cursor.fetchone()
+
+        if not user:
+            conn.close()
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        current_password_hash = hashlib.sha256(current_password.encode()).hexdigest()
+        if current_password_hash != user[0]:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Current password is incorrect'}), 401
+
+        # Update password
+        new_password_hash = hashlib.sha256(new_password.encode()).hexdigest()
+        cursor.execute('UPDATE users SET password_hash = ? WHERE id = ?', (new_password_hash, user_id))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({'success': True, 'message': 'Password updated successfully'}), 200
+
+    except Exception as e:
+        print(f"Change password error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to change password'}), 500
+
+@app.route('/api/user/delete', methods=['DELETE'])
+def delete_account():
+    """Delete user account and all associated data"""
+    try:
+        user_id = get_user_from_token(request.headers.get('Authorization', ''))
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Invalid token'}), 401
+
+        data = request.get_json()
+        password = data.get('password', '') if data else ''
+
+        if not password:
+            return jsonify({'success': False, 'error': 'Password confirmation required'}), 400
+
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+
+        # Verify password
+        cursor.execute('SELECT password_hash FROM users WHERE id = ?', (user_id,))
+        user = cursor.fetchone()
+
+        if not user:
+            conn.close()
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        if password_hash != user[0]:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Incorrect password'}), 401
+
+        # Delete user predictions
+        cursor.execute('DELETE FROM predictions WHERE user_id = ?', (user_id,))
+
+        # Delete user account
+        cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({'success': True, 'message': 'Account deleted successfully'}), 200
+
+    except Exception as e:
+        print(f"Delete account error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to delete account'}), 500
+
 @app.route('/api/predict', methods=['POST'])
 def predict():
     try:
@@ -947,16 +1250,20 @@ def get_enhanced_stats():
             ORDER BY timestamp DESC
         ''', (user_id,))
         predictions = cursor.fetchall()
+
+        # Get model performance data (keep connection open)
+        try:
+            cursor.execute('''
+                SELECT training_accuracy, validation_accuracy, real_time_accuracy
+                FROM model_performance
+                WHERE model_name = ? AND model_version = ?
+            ''', (ml_model.model_name, ml_model.model_version))
+            model_perf = cursor.fetchone()
+        except sqlite3.OperationalError:
+            # Table doesn't exist or other error, use defaults
+            model_perf = None
+
         conn.close()
-
-        # Get model performance data
-        cursor.execute('''
-            SELECT training_accuracy, validation_accuracy, real_time_accuracy
-            FROM model_performance
-            WHERE model_name = ? AND model_version = ?
-        ''', (ml_model.model_name, ml_model.model_version))
-
-        model_perf = cursor.fetchone()
 
         if not predictions:
             # Get accuracy from model performance or use defaults
