@@ -11,35 +11,35 @@ from flask_jwt_extended import JWTManager
 import os
 from datetime import timedelta
 
-# Initialize extensions
+
 jwt = JWTManager()
 
 def create_app():
     """Application factory pattern for creating Flask app"""
     app = Flask(__name__)
     
-    # Configuration
+    # My Configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-change-in-production')
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)
     
-    # Database configuration
+    
     database_url = os.environ.get('DATABASE_URL', 'sqlite:///smsguard.db')
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # File upload configuration
+    
     app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads/profile_images')
     app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 5242880))  # 5MB
     
-    # Import and initialize database
+    
     from models import db
     db.init_app(app)
     jwt.init_app(app)
     
-    # CORS configuration
+   
     cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:5173').split(',')
     CORS(app, origins=cors_origins, supports_credentials=True)
     
@@ -89,10 +89,27 @@ def create_app():
             'version': '1.0.0'
         })
     
-    # Create database tables
+    # Create database tables and demo user
     with app.app_context():
         db.create_all()
-    
+        print("Database initialized")
+
+        # Create demo user if it doesn't exist
+        from models import User
+        demo_user = User.query.filter_by(username='demo').first()
+        if not demo_user:
+            demo_user = User(
+                username='demo',
+                email='demo@example.com',
+                bio='Demo user for testing SMS Guard'
+            )
+            demo_user.set_password('demo123')
+            db.session.add(demo_user)
+            db.session.commit()
+            print("Demo user created: demo / demo123")
+        else:
+            print("Demo user already exists: demo / demo123")
+
     return app
 
 if __name__ == '__main__':

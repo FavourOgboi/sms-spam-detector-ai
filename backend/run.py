@@ -21,12 +21,15 @@ if __name__ == '__main__':
     host = os.environ.get('FLASK_HOST', '0.0.0.0')
     port = int(os.environ.get('FLASK_PORT', 5000))
     
-    print("=" * 50)
+    print("=" * 60)
     print("SMS Guard Flask Backend Starting...")
     print(f"Environment: {os.environ.get('FLASK_ENV', 'development')}")
     print(f"Debug Mode: {debug_mode}")
     print(f"Host: {host}")
     print(f"Port: {port}")
-    print("=" * 50)
+    print("Demo credentials: demo / demo123")
+    print("API will be available at: http://localhost:5000/api")
+    print("Frontend should connect from: http://localhost:5173")
+    print("=" * 60)
     
     app.run(host=host, port=port, debug=debug_mode)

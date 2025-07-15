@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User } from '../types/index';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { authService } from '../services/api';
+import { User } from '../types/index';
 
 interface AuthContextType {
   user: User | null;
@@ -48,14 +48,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (usernameOrEmail: string, password: string): Promise<boolean> => {
     try {
+      console.log('🔐 AuthContext: Starting login process');
+      console.log('📧 Username/Email:', usernameOrEmail);
+      console.log('🔑 Password:', password ? '***provided***' : 'NOT PROVIDED');
+
       const response = await authService.login({ usernameOrEmail, password });
+
+      console.log('📡 AuthService response:', response);
+
       if (response.success && response.data) {
+        console.log('✅ Login successful, setting user:', response.data.user);
         setUser(response.data.user);
         return true;
+      } else {
+        console.log('❌ Login failed:', response.error || 'Unknown error');
+        return false;
       }
-      return false;
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('❌ Login exception:', error);
       return false;
     }
   };

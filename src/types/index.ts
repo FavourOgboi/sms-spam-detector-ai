@@ -30,9 +30,15 @@ export interface PasswordChangeData {
 export interface ExplanationFeature {
   feature: string;
   importance: number;
-  present: boolean;
-  explanation: string;
-  method: 'KEYWORD' | 'ANALYSIS' | 'LIME' | 'SHAP';
+  direction: 'spam' | 'ham';
+  abs_importance?: number;
+  frequency?: number;
+}
+
+export interface BasicExplanation {
+  method: string;
+  summary: string;
+  top_features: ExplanationFeature[];
 }
 
 export interface PredictionResult {
@@ -43,6 +49,7 @@ export interface PredictionResult {
   spamProbability?: number;
   hamProbability?: number;
   topFeatures?: ExplanationFeature[];
+  explanation?: BasicExplanation;
   timestamp: string;
   userId: string;
 }

@@ -1,15 +1,15 @@
 import axios from 'axios';
 import {
-    ApiResponse,
-    AuthCredentials,
-    AuthResponse,
-    PredictionResult,
-    RegisterCredentials,
-    User,
-    UserStats
+  ApiResponse,
+  AuthCredentials,
+  AuthResponse,
+  PredictionResult,
+  RegisterCredentials,
+  User,
+  UserStats
 } from '../types/index';
 
-// TODO: Replace with actual Flask backend URL
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 const api = axios.create({
@@ -23,37 +23,90 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token');
   if (token) {
+    // Backend expects 'Bearer token_' format
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// Add response interceptor to handle common errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle 401 errors globally
+    if (error.response?.status === 401) {
+      // Token expired or invalid, clear storage
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('predictions');
+
+      // Redirect to login if not already there
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Utility functions
+export const isAuthenticated = (): boolean => {
+  const token = localStorage.getItem('auth_token');
+  const user = localStorage.getItem('user');
+  return !!(token && user);
+};
+
+export const getCurrentUserFromStorage = (): User | null => {
+  try {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  } catch {
+    return null;
+  }
+};
 
 // Authentication Services
 export const authService = {
   // Flask /api/auth/login endpoint
   async login(credentials: AuthCredentials): Promise<ApiResponse<AuthResponse>> {
     try {
+      console.log('🌐 API Service: Making login request');
+      console.log('📤 Request URL:', `${API_BASE_URL}/auth/login`);
+      console.log('📤 Request data:', {
+        usernameOrEmail: credentials.usernameOrEmail,
+        password: credentials.password ? '***provided***' : 'NOT PROVIDED'
+      });
+
       const response = await api.post('/auth/login', {
         usernameOrEmail: credentials.usernameOrEmail,
         password: credentials.password
       });
+
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response data:', response.data);
 
       if (response.data.success) {
         const { token, user } = response.data.data;
         localStorage.setItem('auth_token', token);
         localStorage.setItem('user', JSON.stringify(user));
 
+        console.log('✅ Login successful, token stored');
         return {
           success: true,
           data: { token, user }
         };
       } else {
+        console.log('❌ Login failed from server:', response.data.error);
         return {
           success: false,
           error: response.data.error || 'Login failed'
         };
       }
     } catch (error: any) {
+      console.error('❌ API Login error:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+
       const errorMessage = error.response?.data?.error || 'Login failed. Please try again.';
       return {
         success: false,
@@ -139,23 +192,92 @@ export const predictionService = {
   // Flask /api/predict endpoint
   async predictSpam(message: string): Promise<ApiResponse<PredictionResult>> {
     try {
+      console.log('🔮 API Service: Making prediction request');
+      console.log('📤 Message length:', message.length);
+
+      if (!message.trim()) {
+        return {
+          success: false,
+          error: 'Message cannot be empty'
+        };
+      }
+
       const response = await api.post('/predict', {
-        message: message
+        message: message.trim()
       });
 
+      console.log('📥 Prediction response status:', response.status);
+      console.log('📥 Prediction response data:', response.data);
+
       if (response.data.success) {
+        const predictionData = response.data.data;
+
+        // Validate prediction data structure
+        if (!predictionData.prediction || typeof predictionData.confidence !== 'number') {
+          console.warn('⚠️  Invalid prediction data structure:', predictionData);
+        }
+
         return {
           success: true,
-          data: response.data.data
+          data: predictionData
         };
       } else {
+        console.error('❌ Prediction failed from server:', response.data.error);
         return {
           success: false,
           error: response.data.error || 'Prediction failed'
         };
       }
     } catch (error: any) {
+      console.error('❌ Prediction API error:', error);
+      console.error('❌ Error response:', error.response?.data);
+
       const errorMessage = error.response?.data?.error || 'Prediction failed. Please try again.';
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  },
+
+  // Note: Explanations are now included in the /predict endpoint response
+  // This method is kept for backward compatibility but uses the predict endpoint
+  async explainPrediction(message: string, numFeatures: number = 10): Promise<ApiResponse<any>> {
+    try {
+      console.log('🔍 API Service: Getting explanation via prediction');
+      console.log('📤 Request data:', { message: message.substring(0, 50) + '...', numFeatures });
+
+      // Use the predict endpoint which now includes explanations
+      const response = await api.post('/predict', {
+        message: message
+      });
+
+      console.log('📥 Prediction with explanation response:', response.data);
+
+      if (response.data.success) {
+        // Extract explanation data from prediction response
+        const predictionData = response.data.data;
+        const explanationData = {
+          topFeatures: predictionData.topFeatures || [],
+          prediction: predictionData.prediction,
+          confidence: predictionData.confidence,
+          spamProbability: predictionData.spamProbability,
+          hamProbability: predictionData.hamProbability
+        };
+
+        return {
+          success: true,
+          data: explanationData
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data.error || 'Explanation failed'
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ Explanation error:', error);
+      const errorMessage = error.response?.data?.error || 'Explanation failed. Please try again.';
       return {
         success: false,
         error: errorMessage
@@ -263,13 +385,13 @@ export const userService = {
     }
   },
 
-  // Flask /api/user/change-password endpoint
-  async changePassword(passwordData: { currentPassword: string; newPassword: string; confirmNewPassword: string }): Promise<ApiResponse<void>> {
+  // Flask /api/user/password endpoint
+  async changePassword(passwordData: { currentPassword: string; newPassword: string; confirmNewPassword?: string }): Promise<ApiResponse<void>> {
     try {
-      const response = await api.put('/user/change-password', {
+      // Backend only needs currentPassword and newPassword
+      const response = await api.put('/user/password', {
         currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword,
-        confirmNewPassword: passwordData.confirmNewPassword
+        newPassword: passwordData.newPassword
       });
 
       if (response.data.success) {
@@ -292,9 +414,11 @@ export const userService = {
   },
 
   // Flask /api/user/delete endpoint
-  async deleteAccount(): Promise<ApiResponse<void>> {
+  async deleteAccount(password: string): Promise<ApiResponse<void>> {
     try {
-      const response = await api.delete('/user/delete');
+      const response = await api.delete('/user/delete', {
+        data: { password }
+      });
 
       if (response.data.success) {
         // Clear local storage after successful deletion

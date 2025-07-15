@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Shield, Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { Eye, EyeOff, Lock, Mail, Shield } from 'lucide-react';
+import React, { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { useAuth } from '../contexts/AuthContext';
 
 const Login: React.FC = () => {
   const location = useLocation();
@@ -34,17 +34,28 @@ const Login: React.FC = () => {
       return;
     }
 
+    console.log('🚀 Login form submitted');
+    console.log('📝 Form data:', {
+      usernameOrEmail: formData.usernameOrEmail,
+      password: formData.password ? '***provided***' : 'NOT PROVIDED'
+    });
+
     setLoading(true);
     setError('');
 
     try {
       const success = await login(formData.usernameOrEmail, formData.password);
+      console.log('🎯 Login result:', success);
+
       if (success) {
+        console.log('✅ Login successful, navigating to dashboard');
         navigate('/dashboard');
       } else {
+        console.log('❌ Login failed, showing error');
         setError('Invalid credentials. Please try again.');
       }
     } catch (err) {
+      console.error('❌ Login exception:', err);
       setError('Login failed. Please try again.');
     } finally {
       setLoading(false);

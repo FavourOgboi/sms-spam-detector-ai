@@ -18,13 +18,43 @@ const Predict: React.FC = () => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PredictionResult | null>(null);
-
+  const [explanation, setExplanation] = useState<any>(null);
+  const [loadingExplanation, setLoadingExplanation] = useState(false);
   const [error, setError] = useState('');
 
   const resetForm = () => {
     setMessage('');
     setResult(null);
+    setExplanation(null);
     setError('');
+  };
+
+  const handleExplain = async () => {
+    if (!message.trim()) {
+      setError('SMS message cannot be empty');
+      return;
+    }
+
+    setLoadingExplanation(true);
+    setError('');
+
+    try {
+      console.log('🔍 Requesting explanation for message:', message.substring(0, 50) + '...');
+      const response = await predictionService.explainPrediction(message, 10);
+
+      if (response.success && response.data) {
+        console.log('✅ Explanation received:', response.data);
+        setExplanation(response.data);
+      } else {
+        console.log('❌ Explanation failed:', response.error);
+        setError(response.error || 'Explanation failed');
+      }
+    } catch (err) {
+      console.error('❌ Explanation error:', err);
+      setError('Explanation failed. Please try again.');
+    } finally {
+      setLoadingExplanation(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -240,6 +270,53 @@ const Predict: React.FC = () => {
               </div>
             </div>
 
+            {/* Basic AI Explanation */}
+            {result.explanation && result.explanation.top_features && result.explanation.top_features.length > 0 && (
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-6 rounded-lg border border-purple-200 dark:border-purple-800">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg mr-3">
+                    <Lightbulb className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h4 className="text-lg font-semibold text-purple-900 dark:text-purple-100">
+                    AI Explanation ({result.explanation.method})
+                  </h4>
+                </div>
+
+                <p className="text-sm text-purple-700 dark:text-purple-300 mb-4">
+                  {result.explanation.summary}
+                </p>
+
+                <div className="space-y-2">
+                  <h5 className="text-sm font-medium text-purple-800 dark:text-purple-200 mb-2">
+                    Key Contributing Words:
+                  </h5>
+                  <div className="flex flex-wrap gap-2">
+                    {result.explanation.top_features.map((feature, index) => (
+                      <motion.span
+                        key={index}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.1 }}
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                          feature.direction === 'spam'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                            : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                        }`}
+                      >
+                        "{feature.feature}"
+                        <span className="ml-1 text-xs opacity-75">
+                          {feature.direction === 'spam' ? '→ SPAM' : '→ HAM'}
+                        </span>
+                        <span className="ml-1 text-xs opacity-60">
+                          ({Math.abs(feature.importance).toFixed(2)})
+                        </span>
+                      </motion.span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Why this prediction? */}
             {result.topFeatures && result.topFeatures.length > 0 && (
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -353,6 +430,19 @@ const Predict: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <button
+                type="button"
+                onClick={handleExplain}
+                disabled={loadingExplanation}
+                className="flex-1 flex items-center justify-center px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loadingExplanation ? (
+                  <LoadingSpinner size="sm" className="mr-2" />
+                ) : (
+                  <Lightbulb className="h-5 w-5 mr-2" />
+                )}
+                {loadingExplanation ? 'Explaining...' : 'Explain Prediction'}
+              </button>
               <Link
                 to="/dashboard"
                 className="flex-1 flex items-center justify-center px-6 py-3 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors"
@@ -375,6 +465,128 @@ const Predict: React.FC = () => {
                 Analyze Another Message
               </button>
             </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Explanation Results */}
+      {explanation && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden"
+        >
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-500 p-6 text-white">
+            <div className="flex items-center space-x-3">
+              <Lightbulb className="h-8 w-8" />
+              <div>
+                <h3 className="text-2xl font-bold">AI Explanation</h3>
+                <p className="text-blue-100">Understanding why this prediction was made</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-8 space-y-6">
+            {explanation.success ? (
+              <>
+                {/* Prediction Summary */}
+                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Prediction Summary</h4>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong>Result:</strong> {explanation.prediction?.toUpperCase()}
+                    <span className="ml-2">
+                      (Confidence: {explanation.confidence ? (explanation.confidence * 100).toFixed(1) : 'N/A'}%)
+                    </span>
+                  </p>
+                  {explanation.explanation?.summary && (
+                    <p className="text-gray-600 dark:text-gray-400 mt-2">
+                      {explanation.explanation.summary}
+                    </p>
+                  )}
+                </div>
+
+                {/* Feature Analysis */}
+                {explanation.explanation?.features && explanation.explanation.features.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-4">
+                      Key Features Analysis ({explanation.explanation.method})
+                    </h4>
+                    <div className="space-y-3">
+                      {explanation.explanation.features.slice(0, 8).map((feature: any, index: number) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-3 h-3 rounded-full ${
+                              feature.direction === 'spam' ? 'bg-red-500' : 'bg-green-500'
+                            }`}></div>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              "{feature.feature}"
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className={`text-sm font-medium ${
+                              feature.direction === 'spam' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                            }`}>
+                              {feature.direction === 'spam' ? '→ SPAM' : '→ HAM'}
+                            </span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              {Math.abs(feature.importance).toFixed(3)}
+                            </span>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Processing Info */}
+                <div className="text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-600 pt-4">
+                  <p>
+                    Analysis completed in {explanation.processing_time_ms || 'N/A'}ms using {explanation.explanation?.method || 'AI'} method
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-yellow-500 mb-4">
+                  <Lightbulb className="h-12 w-12 mx-auto" />
+                </div>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Explanation Not Available
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  {explanation.error || 'Unable to generate explanation for this prediction.'}
+                </p>
+                {explanation.fallback_explanation && (
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-left">
+                    <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                      Basic Analysis ({explanation.fallback_explanation.method})
+                    </h5>
+                    <p className="text-gray-600 dark:text-gray-400 mb-3">
+                      {explanation.fallback_explanation.summary}
+                    </p>
+                    {explanation.fallback_explanation.features && explanation.fallback_explanation.features.length > 0 && (
+                      <div className="space-y-2">
+                        {explanation.fallback_explanation.features.map((feature: any, index: number) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                              Found keyword: "{feature.feature}"
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </motion.div>
       )}
