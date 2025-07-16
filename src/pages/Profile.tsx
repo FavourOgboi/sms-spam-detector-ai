@@ -44,10 +44,8 @@ const Profile: React.FC = () => {
     setSuccess('');
 
     try {
-      const updateData = { ...formData };
-
       // Don't include profileImage in updateData - let the backend handle it
-      delete updateData.profileImage;
+      const { profileImage, ...updateData } = formData;
 
       console.log('Updating profile with data:', updateData);
       console.log('Selected file:', selectedFile?.name);
@@ -253,10 +251,15 @@ const Profile: React.FC = () => {
                 accept="image/*"
                 onChange={handleFileSelect}
                 className="hidden"
+                title="Select profile image"
+                aria-label="Select profile image"
               />
-              <button 
+              <button
+                type="button"
                 onClick={() => document.getElementById('profileImage')?.click()}
                 className="absolute bottom-0 right-0 p-2 bg-primary-500 text-white rounded-full hover:bg-primary-600 transition-colors"
+                title="Change profile picture"
+                aria-label="Change profile picture"
               >
                 <Camera className="h-4 w-4" />
               </button>
@@ -542,12 +545,14 @@ const Profile: React.FC = () => {
           
           <div className="flex space-x-3 pt-4">
             <button
+              type="button"
               onClick={() => setDeleteModalOpen(false)}
               className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={handleDeleteAccount}
               disabled={deleteLoading}
               className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
