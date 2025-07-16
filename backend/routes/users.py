@@ -180,17 +180,33 @@ def update_profile():
         # Handle profile image upload
         if 'profileImage' in request.files:
             file = request.files['profileImage']
+            print(f"Profile image upload attempt: {file.filename if file else 'No file'}")
+
             if file and file.filename and allowed_file(file.filename):
                 # Generate unique filename
                 filename = str(uuid.uuid4()) + '.' + file.filename.rsplit('.', 1)[1].lower()
-                
+
                 # Save file
                 from flask import current_app
                 file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-                file.save(file_path)
-                
-                # Update user profile image
-                user.profile_image = f'/uploads/profile_images/{filename}'
+
+                try:
+                    file.save(file_path)
+                    print(f"File saved to: {file_path}")
+
+                    # Update user profile image with full URL
+                    user.profile_image = f'http://localhost:5000/uploads/profile_images/{filename}'
+                    print(f"Profile image URL set: {user.profile_image}")
+                except Exception as e:
+                    print(f"Error saving file: {e}")
+                    return jsonify({
+                        'success': False,
+                        'error': 'Failed to save profile image'
+                    }), 500
+            else:
+                print(f"Invalid file: {file.filename if file else 'No filename'}")
+                if file and file.filename:
+                    print(f"File extension allowed: {allowed_file(file.filename)}")
         
         db.session.commit()
         
@@ -228,16 +244,19 @@ def change_password():
             }), 401
         
         data = request.get_json()
-        
+        print(f"PASSWORD CHANGE REQUEST: {data}")
+
         if not data:
             return jsonify({
                 'success': False,
                 'error': 'No data provided'
             }), 400
-        
+
         current_password = data.get('currentPassword', '')
         new_password = data.get('newPassword', '')
         confirm_password = data.get('confirmNewPassword', '')
+
+        print(f"PASSWORD CHANGE DATA: current={'***' if current_password else 'EMPTY'}, new={'***' if new_password else 'EMPTY'}, confirm={'***' if confirm_password else 'EMPTY'}")
         
         # Validate current password
         if not user.check_password(current_password):
@@ -247,13 +266,25 @@ def change_password():
             }), 400
         
         # Validate new password
+        if not new_password:
+            return jsonify({
+                'success': False,
+                'error': 'New password is required'
+            }), 400
+
         if len(new_password) < 6:
             return jsonify({
                 'success': False,
                 'error': 'New password must be at least 6 characters long'
             }), 400
-        
-        if new_password != confirm_password:
+
+        if new_password == current_password:
+            return jsonify({
+                'success': False,
+                'error': 'New password must be different from current password'
+            }), 400
+
+        if confirm_password and new_password != confirm_password:
             return jsonify({
                 'success': False,
                 'error': 'New passwords do not match'
@@ -270,10 +301,12 @@ def change_password():
         
     except Exception as e:
         db.session.rollback()
-        print(f"Password change error: {str(e)}")
+        print(f"PASSWORD CHANGE ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': 'Failed to change password'
+            'error': f'Failed to change password: {str(e)}'
         }), 500
 
 @users_bp.route('/delete', methods=['DELETE'])
@@ -295,6 +328,19 @@ def delete_account():
                 'error': 'User not found'
             }), 404
         
+        # Clean up profile image if it exists
+        if user.profile_image and user.profile_image.startswith('/uploads/'):
+            try:
+                import os
+                from flask import current_app
+                filename = user.profile_image.split('/')[-1]
+                file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    print(f"Deleted profile image: {file_path}")
+            except Exception as e:
+                print(f"Failed to delete profile image: {e}")
+
         # Delete user (cascade will delete predictions)
         db.session.delete(user)
         db.session.commit()

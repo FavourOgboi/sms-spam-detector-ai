@@ -5,7 +5,7 @@ This is the main Flask application file that initializes the app,
 configures the database, and registers all the API routes.
 """
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 import os
@@ -33,6 +33,12 @@ def create_app():
     
     app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads/profile_images')
     app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 5242880))  # 5MB
+
+    # Create upload folder if it doesn't exist
+    upload_folder = app.config['UPLOAD_FOLDER']
+    if not os.path.exists(upload_folder):
+        os.makedirs(upload_folder)
+        print(f"Created upload folder: {upload_folder}")
     
     
     from models import db
@@ -88,27 +94,25 @@ def create_app():
             'message': 'SMS Guard API is running',
             'version': '1.0.0'
         })
+
+    # Serve uploaded profile images
+    @app.route('/uploads/profile_images/<filename>')
+    def uploaded_file(filename):
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
     
-    # Create database tables and demo user
+    # Create database tables
     with app.app_context():
         db.create_all()
         print("Database initialized")
 
-        # Create demo user if it doesn't exist
+        # Check existing users
         from models import User
-        demo_user = User.query.filter_by(username='demo').first()
-        if not demo_user:
-            demo_user = User(
-                username='demo',
-                email='demo@example.com',
-                bio='Demo user for testing SMS Guard'
-            )
-            demo_user.set_password('demo123')
-            db.session.add(demo_user)
-            db.session.commit()
-            print("Demo user created: demo / demo123")
-        else:
-            print("Demo user already exists: demo / demo123")
+        users = User.query.all()
+        print(f"Current users in database: {len(users)}")
+        for user in users:
+            print(f"  - {user.username} ({user.email})")
+
+        print("Ready for new user registrations")
 
     return app
 

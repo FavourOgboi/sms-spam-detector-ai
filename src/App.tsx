@@ -1,17 +1,16 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Predict from './pages/Predict';
-import History from './pages/History';
-import Explanation from './pages/Explanation';
-import Profile from './pages/Profile';
+import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Contact from './pages/Contact';
+import Dashboard from './pages/Dashboard';
+import Explanation from './pages/Explanation';
+import History from './pages/History';
+import Login from './pages/Login';
+import Predict from './pages/Predict';
+import Profile from './pages/Profile';
+import Register from './pages/Register';
 
 function App() {
   return (
@@ -42,7 +41,7 @@ function App() {
             </Route>
             
             {/* Catch all route */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </Router>
       </AuthProvider>

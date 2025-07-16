@@ -107,78 +107,54 @@ def login():
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    """
-    User registration endpoint
-    Expected: POST /api/auth/register
-    Body: { "username": "string", "email": "string", "password": "string" }
-    Returns: { "success": boolean, "data": { "token": string, "user": User }, "error"?: string }
-    """
+    """Simple user registration"""
+    print("=== REGISTRATION REQUEST RECEIVED ===")
+
     try:
         data = request.get_json()
-        
+        print(f"Request data: {data}")
+
         if not data:
-            return jsonify({
-                'success': False,
-                'error': 'No data provided'
-            }), 400
-        
+            print("ERROR: No data provided")
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+
         username = data.get('username', '').strip()
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
-        
-        # Validation
+
+        print(f"Parsed data: username={username}, email={email}, password={'***' if password else 'EMPTY'}")
+
+        # Simple validation
         if not username or not email or not password:
-            return jsonify({
-                'success': False,
-                'error': 'Username, email, and password are required'
-            }), 400
-        
-        # Validate username
-        is_valid, error_msg = validate_username(username)
-        if not is_valid:
-            return jsonify({
-                'success': False,
-                'error': error_msg
-            }), 400
-        
-        # Validate email
-        if not validate_email(email):
-            return jsonify({
-                'success': False,
-                'error': 'Invalid email format'
-            }), 400
-        
-        # Validate password
-        is_valid, error_msg = validate_password(password)
-        if not is_valid:
-            return jsonify({
-                'success': False,
-                'error': error_msg
-            }), 400
-        
-        # Check if user already exists
+            print("ERROR: Missing required fields")
+            return jsonify({'success': False, 'error': 'All fields are required'}), 400
+
+        if len(password) < 6:
+            print("ERROR: Password too short")
+            return jsonify({'success': False, 'error': 'Password must be at least 6 characters'}), 400
+
+        # Check if user exists
         if User.query.filter_by(username=username).first():
-            return jsonify({
-                'success': False,
-                'error': 'Username already exists'
-            }), 409
-        
+            print("ERROR: Username exists")
+            return jsonify({'success': False, 'error': 'Username already exists'}), 409
+
         if User.query.filter_by(email=email).first():
-            return jsonify({
-                'success': False,
-                'error': 'Email already registered'
-            }), 409
-        
-        # Create new user
+            print("ERROR: Email exists")
+            return jsonify({'success': False, 'error': 'Email already exists'}), 409
+
+        # Create user
+        print("Creating new user...")
         user = User(username=username, email=email)
         user.set_password(password)
-        
+
         db.session.add(user)
         db.session.commit()
-        
-        # Create access token
+
+        print(f"User created successfully: {user.id}")
+
+        # Create token
         access_token = create_access_token(identity=user.id)
-        
+
         return jsonify({
             'success': True,
             'data': {
@@ -186,13 +162,13 @@ def register():
                 'user': user.to_dict()
             }
         }), 201
-        
+
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': 'Registration failed. Please try again.'
-        }), 500
+        print(f"REGISTRATION ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': 'Registration failed'}), 500
 
 @auth_bp.route('/me', methods=['GET'])
 @jwt_required()

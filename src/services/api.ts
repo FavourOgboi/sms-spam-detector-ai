@@ -1,12 +1,12 @@
 import axios from 'axios';
 import {
-  ApiResponse,
-  AuthCredentials,
-  AuthResponse,
-  PredictionResult,
-  RegisterCredentials,
-  User,
-  UserStats
+    ApiResponse,
+    AuthCredentials,
+    AuthResponse,
+    PredictionResult,
+    RegisterCredentials,
+    User,
+    UserStats
 } from '../types/index';
 
 
@@ -117,30 +117,54 @@ export const authService = {
 
   // Flask /api/auth/register endpoint
   async register(credentials: RegisterCredentials): Promise<ApiResponse<AuthResponse>> {
+    console.log('=== FRONTEND REGISTRATION START ===');
+    console.log('API_BASE_URL:', API_BASE_URL);
+    console.log('Full URL:', `${API_BASE_URL}/auth/register`);
+    console.log('Credentials:', {
+      username: credentials.username,
+      email: credentials.email,
+      password: credentials.password ? '***provided***' : 'NOT PROVIDED'
+    });
+
     try {
-      const response = await api.post('/auth/register', {
+      const requestData = {
         username: credentials.username,
         email: credentials.email,
         password: credentials.password
-      });
+      };
+
+      console.log('Making POST request...');
+      const response = await api.post('/auth/register', requestData);
+
+      console.log('Response received:', response.status, response.data);
 
       if (response.data.success) {
         const { token, user } = response.data.data;
         localStorage.setItem('auth_token', token);
         localStorage.setItem('user', JSON.stringify(user));
 
+        console.log('Registration successful!');
         return {
           success: true,
           data: { token, user }
         };
       } else {
+        console.log('Registration failed:', response.data.error);
         return {
           success: false,
           error: response.data.error || 'Registration failed'
         };
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Registration failed. Please try again.';
+      console.error('Registration request failed:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url
+      });
+
+      const errorMessage = error.response?.data?.error || 'Network error. Please try again.';
       return {
         success: false,
         error: errorMessage
@@ -240,34 +264,24 @@ export const predictionService = {
     }
   },
 
-  // Note: Explanations are now included in the /predict endpoint response
-  // This method is kept for backward compatibility but uses the predict endpoint
+  // Dedicated explanation endpoint
   async explainPrediction(message: string, numFeatures: number = 10): Promise<ApiResponse<any>> {
     try {
-      console.log('🔍 API Service: Getting explanation via prediction');
+      console.log('🔍 API Service: Getting detailed explanation');
       console.log('📤 Request data:', { message: message.substring(0, 50) + '...', numFeatures });
 
-      // Use the predict endpoint which now includes explanations
-      const response = await api.post('/predict', {
-        message: message
+      // Use the dedicated explain endpoint
+      const response = await api.post('/explain', {
+        message: message,
+        num_features: numFeatures
       });
 
-      console.log('📥 Prediction with explanation response:', response.data);
+      console.log('📥 Explanation response:', response.data);
 
       if (response.data.success) {
-        // Extract explanation data from prediction response
-        const predictionData = response.data.data;
-        const explanationData = {
-          topFeatures: predictionData.topFeatures || [],
-          prediction: predictionData.prediction,
-          confidence: predictionData.confidence,
-          spamProbability: predictionData.spamProbability,
-          hamProbability: predictionData.hamProbability
-        };
-
         return {
           success: true,
-          data: explanationData
+          data: response.data.data
         };
       } else {
         return {
@@ -277,7 +291,8 @@ export const predictionService = {
       }
     } catch (error: any) {
       console.error('❌ Explanation error:', error);
-      const errorMessage = error.response?.data?.error || 'Explanation failed. Please try again.';
+      console.error('Error details:', error.response?.data);
+      const errorMessage = error.response?.data?.error || 'Unable to explain prediction. Please try again.';
       return {
         success: false,
         error: errorMessage
@@ -385,26 +400,40 @@ export const userService = {
     }
   },
 
-  // Flask /api/user/password endpoint
+  // Flask /api/user/change-password endpoint
   async changePassword(passwordData: { currentPassword: string; newPassword: string; confirmNewPassword?: string }): Promise<ApiResponse<void>> {
     try {
-      // Backend only needs currentPassword and newPassword
-      const response = await api.put('/user/password', {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
+      console.log('PASSWORD CHANGE: Starting request');
+      console.log('PASSWORD CHANGE: Data:', {
+        currentPassword: passwordData.currentPassword ? '***provided***' : 'EMPTY',
+        newPassword: passwordData.newPassword ? '***provided***' : 'EMPTY',
+        confirmNewPassword: passwordData.confirmNewPassword ? '***provided***' : 'EMPTY'
       });
 
+      const requestData = {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+        confirmNewPassword: passwordData.confirmNewPassword || passwordData.newPassword
+      };
+
+      const response = await api.put('/user/change-password', requestData);
+      console.log('PASSWORD CHANGE: Response:', response.status, response.data);
+
       if (response.data.success) {
+        console.log('PASSWORD CHANGE: Success');
         return {
           success: true
         };
       } else {
+        console.log('PASSWORD CHANGE: Failed:', response.data.error);
         return {
           success: false,
           error: response.data.error || 'Failed to change password'
         };
       }
     } catch (error: any) {
+      console.error('PASSWORD CHANGE: Error:', error);
+      console.error('PASSWORD CHANGE: Error response:', error.response?.data);
       const errorMessage = error.response?.data?.error || 'Failed to change password.';
       return {
         success: false,
@@ -414,11 +443,9 @@ export const userService = {
   },
 
   // Flask /api/user/delete endpoint
-  async deleteAccount(password: string): Promise<ApiResponse<void>> {
+  async deleteAccount(): Promise<ApiResponse<void>> {
     try {
-      const response = await api.delete('/user/delete', {
-        data: { password }
-      });
+      const response = await api.delete('/user/delete');
 
       if (response.data.success) {
         // Clear local storage after successful deletion

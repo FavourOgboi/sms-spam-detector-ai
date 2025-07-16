@@ -1,9 +1,9 @@
+import { motion } from 'framer-motion';
+import { Eye, EyeOff, Lock, Mail, Shield, User } from 'lucide-react';
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Shield, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { useAuth } from '../contexts/AuthContext';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -58,19 +58,31 @@ const Register: React.FC = () => {
     setErrors({});
 
     try {
+      console.log('Register form submitted');
+      console.log('Form data:', {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password ? '***provided***' : 'NOT PROVIDED'
+      });
+
       const success = await register(formData.username, formData.email, formData.password);
+      console.log('Registration result:', success);
+
       if (success) {
+        console.log('Registration successful, navigating to login');
         // Redirect to login page after successful registration
-        navigate('/login', { 
-          state: { 
+        navigate('/login', {
+          state: {
             message: 'Registration successful! Please sign in with your new credentials.',
-            email: formData.email 
-          } 
+            email: formData.email
+          }
         });
       } else {
+        console.log('Registration failed, showing error');
         setErrors({ general: 'Registration failed. Please try again.' });
       }
     } catch (err) {
+      console.error('Registration exception:', err);
       setErrors({ general: 'Registration failed. Please try again.' });
     } finally {
       setLoading(false);

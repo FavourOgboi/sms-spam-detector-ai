@@ -39,6 +39,7 @@ SMS Guard is a production-ready, AI-powered SMS spam detection system built with
 ## ✨ Features
 
 ### 🔐 **User Authentication & Security**
+
 - Secure login/registration system
 - JWT token-based authentication
 - Protected routes and data isolation
@@ -46,6 +47,7 @@ SMS Guard is a production-ready, AI-powered SMS spam detection system built with
 - Account deletion with confirmation
 
 ### 🤖 **AI-Powered Spam Detection**
+
 - Real-time SMS message analysis
 - Confidence scoring (0-100%)
 - Advanced machine learning algorithms
@@ -53,6 +55,7 @@ SMS Guard is a production-ready, AI-powered SMS spam detection system built with
 - Sample messages for testing
 
 ### 📊 **Personal Dashboard**
+
 - Comprehensive statistics overview
 - Interactive charts (pie and bar charts)
 - Recent predictions history
@@ -60,6 +63,7 @@ SMS Guard is a production-ready, AI-powered SMS spam detection system built with
 - Empty state handling for new users
 
 ### 📱 **Message History Management**
+
 - Complete prediction history
 - Search functionality across messages
 - Filter by spam/ham categories
@@ -67,6 +71,7 @@ SMS Guard is a production-ready, AI-powered SMS spam detection system built with
 - Detailed confidence visualization
 
 ### 🎨 **Modern UI/UX**
+
 - Dark/Light theme toggle with system preference detection
 - Responsive design for all devices
 - Smooth animations with Framer Motion
@@ -74,6 +79,7 @@ SMS Guard is a production-ready, AI-powered SMS spam detection system built with
 - Accessibility-first approach
 
 ### 👤 **Profile Management**
+
 - Editable user information
 - Profile image upload
 - Theme preferences
@@ -83,28 +89,34 @@ SMS Guard is a production-ready, AI-powered SMS spam detection system built with
 ## 📸 Screenshots
 
 ### 🏠 Dashboard Overview
+
 ![Dashboard](docs/screenshots/dashboard.png)
-*Comprehensive analytics dashboard with charts and recent activity*
+_Comprehensive analytics dashboard with charts and recent activity_
 
 ### 🔍 Spam Detection Interface
+
 ![Prediction](docs/screenshots/prediction.png)
-*Real-time spam detection with confidence scoring and animated guard*
+_Real-time spam detection with confidence scoring and animated guard_
 
 ### 📊 Message History
+
 ![History](docs/screenshots/history.png)
-*Searchable and filterable message history with export functionality*
+_Searchable and filterable message history with export functionality_
 
 ### 👤 User Profile
+
 ![Profile](docs/screenshots/profile.png)
-*Complete profile management with theme toggle and settings*
+_Complete profile management with theme toggle and settings_
 
 ### 🌙 Dark Mode
+
 ![Dark Mode](docs/screenshots/dark-mode.png)
-*Beautiful dark mode with proper contrast and accessibility*
+_Beautiful dark mode with proper contrast and accessibility_
 
 ### 📱 Mobile Responsive
+
 ![Mobile](docs/screenshots/mobile.png)
-*Fully responsive design optimized for mobile devices*
+_Fully responsive design optimized for mobile devices_
 
 ## 📁 File Structure
 
@@ -178,26 +190,32 @@ Before you begin, ensure you have the following installed:
 ### Installation Steps
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/your-username/sms-guard-frontend.git
    cd sms-guard-frontend
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Set up environment variables** (optional)
+
    ```bash
    cp .env.example .env
    ```
+
    Edit `.env` file:
+
    ```env
    VITE_API_BASE_URL=http://localhost:5000/api
    ```
 
 4. **Start the development server**
+
    ```bash
    npm run dev
    ```
@@ -205,11 +223,13 @@ Before you begin, ensure you have the following installed:
 5. **Open your browser**
    Navigate to `http://localhost:5173`
 
-### 🎮 Demo Credentials
+### 🎮 Getting Started
 
-The application includes a demo system for testing:
-- **Username:** `demo` or **Email:** `demo@example.com`
-- **Password:** `demo123`
+To use the application:
+
+1. **Register a new account** at `/register`
+2. **Sign in** with your credentials
+3. **Start analyzing messages** for spam detection
 
 ## 💻 VS Code Setup
 

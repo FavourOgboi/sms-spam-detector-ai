@@ -175,16 +175,26 @@ def explain_prediction():
             }), 400
 
         # Generate explanation using the ML model
+        print(f"EXPLAIN: Generating explanation for message: {message[:50]}...")
         explanation_result = spam_detector.explain_prediction(message, num_features)
+        print(f"EXPLAIN: Result success: {explanation_result.get('success', False)}")
 
-        return jsonify({
-            'success': True,
-            'data': explanation_result
-        }), 200
+        if explanation_result.get('success'):
+            return jsonify({
+                'success': True,
+                'data': explanation_result
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': explanation_result.get('error', 'Failed to generate explanation')
+            }), 500
 
     except Exception as e:
-        print(f"Explanation error: {str(e)}")
+        print(f"EXPLANATION ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': 'Explanation failed. Please try again.'
+            'error': f'Explanation failed: {str(e)}'
         }), 500

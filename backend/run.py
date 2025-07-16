@@ -6,13 +6,26 @@ For production, use gunicorn or another WSGI server.
 """
 
 import os
-from dotenv import load_dotenv
-from app import create_app
+import sys
 
-# Load environment variables from .env file
+print("Starting backend...")
+
+try:
+    from dotenv import load_dotenv
+    print("dotenv imported")
+except ImportError:
+    print("dotenv not found, installing...")
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-dotenv"])
+    from dotenv import load_dotenv
+
+print("Loading environment...")
 load_dotenv()
 
-# Create Flask app
+print("Importing app...")
+from app import create_app
+
+print("Creating Flask app...")
 app = create_app()
 
 if __name__ == '__main__':
@@ -27,7 +40,7 @@ if __name__ == '__main__':
     print(f"Debug Mode: {debug_mode}")
     print(f"Host: {host}")
     print(f"Port: {port}")
-    print("Demo credentials: demo / demo123")
+    print("Register new users at: http://localhost:5173/register")
     print("API will be available at: http://localhost:5000/api")
     print("Frontend should connect from: http://localhost:5173")
     print("=" * 60)

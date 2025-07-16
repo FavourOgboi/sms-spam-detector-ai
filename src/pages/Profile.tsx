@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Calendar, Camera, Save, Trash2, Lock, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { userService } from '../services/api';
+import { Calendar, Camera, Eye, EyeOff, Lock, Mail, Save, Trash2, User } from 'lucide-react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Modal from '../components/ui/Modal';
+import { useAuth } from '../contexts/AuthContext';
+import { userService } from '../services/api';
 
 const Profile: React.FC = () => {
   const { user, updateUser, logout } = useAuth();
@@ -45,22 +45,29 @@ const Profile: React.FC = () => {
 
     try {
       const updateData = { ...formData };
-      
-      // If a file is selected, we would normally upload it here
-      // For now, we'll use the preview URL as a placeholder
-      if (selectedFile && previewUrl) {
-        updateData.profileImage = previewUrl;
-      }
+
+      // Don't include profileImage in updateData - let the backend handle it
+      delete updateData.profileImage;
+
+      console.log('Updating profile with data:', updateData);
+      console.log('Selected file:', selectedFile?.name);
 
       const response = await userService.updateProfile(updateData, selectedFile);
+      console.log('Profile update response:', response);
+
       if (response.success && response.data) {
         updateUser(response.data);
         setSuccess('Profile updated successfully!');
         setTimeout(() => setSuccess(''), 3000);
+
+        // Clear the preview and selected file after successful update
+        setPreviewUrl('');
+        setSelectedFile(null);
       } else {
         setError(response.error || 'Failed to update profile');
       }
     } catch (err) {
+      console.error('Profile update error:', err);
       setError('Failed to update profile');
     } finally {
       setLoading(false);
@@ -174,8 +181,19 @@ const Profile: React.FC = () => {
   };
 
   const getProfileImageSrc = () => {
+    // Show preview if user is selecting a new image
     if (previewUrl) return previewUrl;
-    if (user?.profileImage && user.profileImage !== '/pres.jpg') return user.profileImage;
+
+    // Show existing profile image from backend
+    if (user?.profileImage && user.profileImage !== '/pres.jpg') {
+      // If it's already a full URL, use it as is
+      if (user.profileImage.startsWith('http')) {
+        return user.profileImage;
+      }
+      // If it's a relative path, prepend backend URL
+      return `http://localhost:5000${user.profileImage}`;
+    }
+
     return null;
   };
 
