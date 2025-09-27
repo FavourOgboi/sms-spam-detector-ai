@@ -100,7 +100,7 @@ const Dashboard: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         className="text-center py-12"
       >
-        <Shield className="h-24 w-24 text-gray-300 dark:text-gray-600 mx-auto mb-6" />
+        <Shield className="h-20 w-20 text-gray-300 dark:text-gray-600 mx-auto mb-6" />
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Welcome to SMS Guard!</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-8">
           You haven't analyzed any messages yet. Start by checking your first message for spam.

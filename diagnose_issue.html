@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Password Reset Diagnostic</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Password Reset Diagnostic Tool</h1>
+    
+    <button onclick="testHealth()">1. Test Backend Health</button>
+    <button onclick="testForgotPassword()">2. Test Forgot Password</button>
+    <button onclick="testResetPassword()">3. Test Reset Password</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+
+    <script>
+        let currentToken = null;
+        
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testHealth() {
+            addResult('🏥 Testing backend health...', 'info');
+            try {
+                const response = await fetch('http://localhost:5000/api/health');
+                const data = await response.json();
+                addResult(`✅ Backend health: ${response.status} - ${JSON.stringify(data)}`, 'success');
+            } catch (error) {
+                addResult(`❌ Backend health failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testForgotPassword() {
+            addResult('📧 Testing forgot password...', 'info');
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'ogboifavourifeanyichukwu@gmail.com' })
+                });
+                
+                const data = await response.json();
+                addResult(`📥 Forgot password response (${response.status}):<pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                         response.status === 200 ? 'success' : 'error');
+                
+                if (data.resetLink) {
+                    const token = data.resetLink.split('token=')[1];
+                    currentToken = token;
+                    addResult(`🎫 Extracted token: ${token.substring(0, 20)}...`, 'info');
+                }
+            } catch (error) {
+                addResult(`❌ Forgot password failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testResetPassword() {
+            if (!currentToken) {
+                addResult('❌ No token available. Run "Test Forgot Password" first.', 'error');
+                return;
+            }
+            
+            addResult('🔑 Testing reset password...', 'info');
+            addResult(`🎫 Using token: ${currentToken.substring(0, 20)}...`, 'info');
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        token: currentToken, 
+                        password: 'DiagnosticTest123!' 
+                    })
+                });
+                
+                const data = await response.json();
+                addResult(`📥 Reset password response (${response.status}):<pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                         response.status === 200 ? 'success' : 'error');
+                
+                if (response.status === 400) {
+                    addResult(`🔍 This is the exact error you're seeing! Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Reset password failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-run health check
+        window.onload = function() {
+            testHealth();
+        };
+    </script>
+</body>
+</html>

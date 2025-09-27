@@ -4,15 +4,16 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run start:backend\" \"npm run start:frontend\" --names \"🔥BACKEND,⚡FRONTEND\" --prefix name --kill-others-on-fail",
+    "dev": "powershell -ExecutionPolicy Bypass -File start-dev.ps1",
     "dev:frontend-only": "vite",
+    "dev:manual": "echo \"Manual start: Open 2 terminals and run 'cd backend && python app.py' and 'npm run dev:frontend-only'\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "setup": "pip install flask flask-sqlalchemy flask-cors flask-jwt-extended werkzeug python-dotenv lime shap",
-    "start:backend": "cd backend && python run.py",
+    "start:backend": "cd backend && python app.py",
     "start:frontend": "vite",
-    "start:all": "concurrently \"npm run start:backend\" \"npm run start:frontend\" --names \"BACKEND,FRONTEND\" --prefix name --kill-others-on-fail"
+    "start:all": "start-dev.bat"
   },
   "dependencies": {
     "axios": "^1.7.2",
@@ -29,7 +30,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
-    "concurrently": "^9.2.0",
+    "concurrently": "^9.2.1",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",

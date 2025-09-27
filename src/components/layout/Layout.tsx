@@ -6,11 +6,13 @@ const Layout: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       <Navigation />
-      <main className="md:ml-64 min-h-screen">
-        <div className="px-4 py-6 md:px-8">
+      {/* Main Content */}
+      <div className="md:ml-64 flex-1 flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Page Content */}
+        <main className="flex-1 p-6 md:p-8">
           <Outlet />
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 };

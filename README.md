@@ -19,6 +19,7 @@
 - [Screenshots](#screenshots)
 - [File Structure](#file-structure)
 - [Getting Started](#getting-started)
+- [Forgot Password Guide](FORGOT_PASSWORD_GUIDE.md)
 - [VS Code Setup](#vs-code-setup)
 - [Backend Integration Guide](#backend-integration-guide)
 - [API Documentation](#api-documentation)
@@ -43,6 +44,7 @@ SMS Guard is a production-ready, AI-powered SMS spam detection system built with
 - Secure login/registration system
 - JWT token-based authentication
 - Protected routes and data isolation
+- **Forgot password with email reset** - Secure token-based password recovery
 - Password change functionality
 - Account deletion with confirmation
 

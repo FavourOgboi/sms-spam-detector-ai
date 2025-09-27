@@ -8,11 +8,21 @@ configures the database, and registers all the API routes.
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from flask_mail import Mail, Message
 import os
 from datetime import timedelta
 
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Environment variables loaded from .env file")
+except ImportError:
+    print("⚠️  python-dotenv not installed, using system environment variables")
+
 
 jwt = JWTManager()
+mail = Mail()
 
 def create_app():
     """Application factory pattern for creating Flask app"""
@@ -32,8 +42,28 @@ def create_app():
     
     
     app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads/profile_images')
-    app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 5242880))  # 5MB
+    app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 5242880))    # 5MB
 
+    # Email configuration - SendGrid (Primary)
+    app.config['SENDGRID_API_KEY'] = os.environ.get('SENDGRID_API_KEY')
+
+    # Email configuration - Flask-Mail (Fallback)
+    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+    app.config['MAIL_USE_TLS'] = True
+    app.config['MAIL_USE_SSL'] = False
+    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', os.environ.get('MAIL_USERNAME'))
+
+    # Print email configuration status
+    if app.config['SENDGRID_API_KEY']:
+        print(f"📧 SendGrid configured: API key found")
+    elif app.config['MAIL_USERNAME'] and app.config['MAIL_PASSWORD']:
+        print(f"📧 Gmail configured: {app.config['MAIL_USERNAME']}")
+    else:
+        print("⚠️  No email service configured - using development mode")
+    
     # Create upload folder if it doesn't exist
     upload_folder = app.config['UPLOAD_FOLDER']
     if not os.path.exists(upload_folder):
@@ -44,25 +74,33 @@ def create_app():
     from models import db
     db.init_app(app)
     jwt.init_app(app)
+    mail.init_app(app)
     
-   
-    cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:5173').split(',')
-    CORS(app, origins=cors_origins, supports_credentials=True)
+    # --- CORS FIX: Allow all origins for development (simpler approach) ---
+    CORS(app,
+         origins="*",
+         supports_credentials=False,
+         allow_headers=["Content-Type", "Authorization"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+    print("🌐 CORS configured to allow all origins with full headers and methods")
+    # -----------------------------------------------------------------------------------------------------------------
     
     # Create upload directory if it doesn't exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
     # Import models to ensure they are registered
-    from models import User, Prediction
+    from models import User, Prediction, PasswordResetToken
 
     # Register blueprints
     from routes.auth import auth_bp
     from routes.predictions import predictions_bp
     from routes.users import users_bp
+    from routes.chatbot import chatbot_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(predictions_bp, url_prefix='/api')
     app.register_blueprint(users_bp, url_prefix='/api/user')
+    app.register_blueprint(chatbot_bp, url_prefix='/api/chatbot')
     
     # Error handlers
     @app.errorhandler(404)
@@ -95,6 +133,27 @@ def create_app():
             'version': '1.0.0'
         })
 
+    # Forgot password page (Flask-only solution)
+    @app.route('/forgot-password')
+    def forgot_password_page():
+        """Serve the forgot password HTML page"""
+        return send_from_directory('templates', 'forgot_password.html')
+
+    # Simple login page redirect
+    @app.route('/login')
+    def login_redirect():
+        """Redirect to React frontend login or show simple message"""
+        return '''
+        <html>
+        <head><title>SMS Guard - Login</title></head>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h1>🔐 SMS Guard</h1>
+            <p>Please use the React frontend at <a href="http://localhost:5179">http://localhost:5179</a></p>
+            <p>SMS Spam Detection Application</p>
+        </body>
+        </html>
+        '''
+
     # Serve uploaded profile images
     @app.route('/uploads/profile_images/<filename>')
     def uploaded_file(filename):
@@ -110,7 +169,7 @@ def create_app():
         users = User.query.all()
         print(f"Current users in database: {len(users)}")
         for user in users:
-            print(f"  - {user.username} ({user.email})")
+            print(f"  - {user.username} ({user.email})")
 
         print("Ready for new user registrations")
 

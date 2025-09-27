@@ -13,7 +13,8 @@ import {
   Shield,
   Sun,
   Moon,
-  MessageCircle
+  MessageCircle,
+  Bot
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -51,6 +52,7 @@ const Navigation: React.FC = () => {
   const navigationItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Predict', path: '/predict', icon: MessageSquare },
+    { name: 'AI Chat', path: '/chat', icon: Bot },
     { name: 'History', path: '/history', icon: History },
     { name: 'Explanation', path: '/explanation', icon: Info },
     { name: 'Profile', path: '/profile', icon: User },
@@ -78,7 +80,7 @@ const Navigation: React.FC = () => {
           {/* Logo */}
           <div className="flex items-center justify-center h-16 px-4 bg-navy-800 dark:bg-gray-800">
             <Link to="/dashboard" className="flex items-center space-x-2">
-              <Shield className="h-8 w-8 text-accent-500" />
+              <Shield className="h-7 w-7 text-accent-500" />
               <span className="text-xl font-bold text-white">SMS Guard</span>
             </Link>
           </div>

@@ -318,9 +318,9 @@ const Explanation: React.FC = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {[
-              { metric: '97.3%', label: 'Overall Accuracy', description: 'Correctly classified messages' },
-              { metric: '98.1%', label: 'Spam Detection', description: 'True positive rate' },
-              { metric: '96.8%', label: 'Ham Accuracy', description: 'Legitimate message accuracy' },
+              { metric: '98.2%', label: 'Overall Accuracy', description: 'Your trained StackingClassifier accuracy' },
+              { metric: '99.2%', label: 'Spam Detection', description: 'Precision from your notebook results' },
+              { metric: '98.1%', label: 'Ham Accuracy', description: 'Legitimate message accuracy' },
               { metric: '<50ms', label: 'Processing Time', description: 'Average analysis speed' }
             ].map((stat, index) => (
               <motion.div

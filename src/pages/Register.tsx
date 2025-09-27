@@ -37,8 +37,8 @@ const Register: React.FC = () => {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -65,10 +65,10 @@ const Register: React.FC = () => {
         password: formData.password ? '***provided***' : 'NOT PROVIDED'
       });
 
-      const success = await register(formData.username, formData.email, formData.password);
-      console.log('Registration result:', success);
+      const result = await register(formData.username, formData.email, formData.password);
+      console.log('Registration result:', result);
 
-      if (success) {
+      if (result.success) {
         console.log('Registration successful, navigating to login');
         // Redirect to login page after successful registration
         navigate('/login', {
@@ -78,8 +78,16 @@ const Register: React.FC = () => {
           }
         });
       } else {
-        console.log('Registration failed, showing error');
-        setErrors({ general: 'Registration failed. Please try again.' });
+        console.log('Registration failed, showing error:', result.error);
+        setErrors({ general: result.error || 'Registration failed. Please try again.' });
+        // Clear only the username field if it's a duplicate username error
+        if (result.error?.includes('username') || result.error?.includes('Username')) {
+          setFormData(prev => ({ ...prev, username: '' }));
+        }
+        // Clear only the email field if it's a duplicate email error
+        if (result.error?.includes('email') || result.error?.includes('Email')) {
+          setFormData(prev => ({ ...prev, email: '' }));
+        }
       }
     } catch (err) {
       console.error('Registration exception:', err);
@@ -101,11 +109,11 @@ const Register: React.FC = () => {
     }
   };
 
-  const isFormValid = formData.username.trim() && 
-                     formData.email.trim() && 
-                     formData.password && 
+  const isFormValid = formData.username.trim() &&
+                     formData.email.trim() &&
+                     formData.password &&
                      formData.confirmPassword &&
-                     Object.keys(errors).length === 0;
+                     formData.password === formData.confirmPassword;
 
   return (
     <div className="min-h-screen flex">
@@ -273,7 +281,7 @@ const Register: React.FC = () => {
                     className={`w-full pl-10 pr-12 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
                       errors.password ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
                     }`}
-                    placeholder="Create a password"
+                    placeholder="Create a strong password"
                     required
                     disabled={loading}
                   />
@@ -288,6 +296,11 @@ const Register: React.FC = () => {
                 </div>
                 {errors.password && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>
+                )}
+                {!errors.password && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Must contain: 8+ characters, uppercase, lowercase, number, and special character
+                  </p>
                 )}
               </div>
 

@@ -44,15 +44,15 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      const success = await login(formData.usernameOrEmail, formData.password);
-      console.log('🎯 Login result:', success);
+      const result = await login(formData.usernameOrEmail, formData.password);
+      console.log('🎯 Login result:', result);
 
-      if (success) {
+      if (result.success) {
         console.log('✅ Login successful, navigating to dashboard');
         navigate('/dashboard');
       } else {
-        console.log('❌ Login failed, showing error');
-        setError('Invalid credentials. Please try again.');
+        console.log('❌ Login failed, showing error:', result.error);
+        setError(result.error || 'Invalid credentials. Please try again.');
       }
     } catch (err) {
       console.error('❌ Login exception:', err);
@@ -218,6 +218,16 @@ const Login: React.FC = () => {
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
+              </div>
+
+              {/* Forgot Password Link */}
+              <div className="text-right">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-primary-500 hover:text-primary-600 font-medium transition-colors duration-200"
+                >
+                  Forgot your password?
+                </Link>
               </div>
 
               <motion.button

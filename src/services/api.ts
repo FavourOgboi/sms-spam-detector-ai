@@ -208,7 +208,89 @@ export const authService = {
       localStorage.removeItem('user');
       return null;
     }
+  },
+
+  // Flask /api/auth/forgot-password endpoint
+  async forgotPassword(email: string): Promise<ApiResponse<{ message: string; resetLink?: string; debug?: boolean }>> {
+    try {
+      console.log('🔄 API Service: Making forgot password request');
+      console.log('📤 Email:', email);
+
+      const response = await api.post('/auth/forgot-password', {
+        email: email.trim().toLowerCase()
+      });
+
+      console.log('📥 Forgot password response:', response.data);
+
+      if (response.data.success) {
+        return {
+          success: true,
+          data: {
+            message: response.data.message,
+            resetLink: response.data.resetLink, // For development mode
+            debug: response.data.debug
+          }
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data.error || 'Failed to send reset link'
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ Forgot password error:', error);
+      const errorMessage = error.response?.data?.error || 'Network error. Please try again.';
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  },
+
+  // Flask /api/auth/reset-password endpoint
+  async resetPassword(token: string, newPassword: string, userId?: string): Promise<ApiResponse<{ message: string }>> {
+    try {
+      console.log('🔄 API Service: Making reset password request');
+      console.log('📤 Token:', token.substring(0, 20) + '...');
+      console.log('📤 User ID:', userId);
+
+      const requestData: any = {
+        token: token,
+        password: newPassword
+      };
+
+      // Add user_id if provided
+      if (userId) {
+        requestData.user_id = userId;
+      }
+
+      const response = await api.post('/auth/reset-password', requestData);
+
+      console.log('📥 Reset password response:', response.data);
+
+      if (response.data.success) {
+        return {
+          success: true,
+          data: {
+            message: response.data.message || 'Password reset successful'
+          }
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data.error || 'Failed to reset password'
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ Reset password error:', error);
+      const errorMessage = error.response?.data?.error || 'Network error. Please try again.';
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
   }
+
 };
 
 // Prediction Services

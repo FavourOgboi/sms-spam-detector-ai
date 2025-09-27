@@ -6,21 +6,32 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import Contact from './pages/Contact';
 import Dashboard from './pages/Dashboard';
 import Explanation from './pages/Explanation';
+import ForgotPassword from './pages/ForgotPassword';
 import History from './pages/History';
 import Login from './pages/Login';
 import Predict from './pages/Predict';
 import Profile from './pages/Profile';
 import Register from './pages/Register';
+import ResetPassword from './pages/ResetPassword';
+import Chat from './pages/Chat';
+
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Router>
+        <Router
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true
+          }}
+        >
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Protected Routes */}
             <Route
@@ -34,6 +45,7 @@ function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="predict" element={<Predict />} />
+              <Route path="chat" element={<Chat />} />
               <Route path="history" element={<History />} />
               <Route path="explanation" element={<Explanation />} />
               <Route path="profile" element={<Profile />} />

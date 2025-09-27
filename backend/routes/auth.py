@@ -7,10 +7,16 @@ login, register, logout, and user verification.
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from models import User, db
+from flask_mail import Message
+from models import User, PasswordResetToken, db
 import re
+import os
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 auth_bp = Blueprint('auth', __name__)
+
+
 
 def validate_email(email):
     """Validate email format"""
@@ -18,12 +24,18 @@ def validate_email(email):
     return re.match(pattern, email) is not None
 
 def validate_password(password):
-    """Validate password strength"""
-    if len(password) < 6:
-        return False, "Password must be at least 6 characters long"
-    if len(password) > 128:
-        return False, "Password must be less than 128 characters"
-    return True, ""
+    """Simple password validation"""
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    if not any(c.isupper() for c in password):
+        return False, "Password must contain at least one uppercase letter"
+    if not any(c.islower() for c in password):
+        return False, "Password must contain at least one lowercase letter"
+    if not any(c.isdigit() for c in password):
+        return False, "Password must contain at least one number"
+    if not any(c in '!@#$%^&*()_+-=[]{}|;:,.<>?' for c in password):
+        return False, "Password must contain at least one special character"
+    return True, "Password is valid"
 
 def validate_username(username):
     """Validate username format"""
@@ -76,10 +88,16 @@ def login():
             password_check = user.check_password(password)
             print(f"DEBUG: Password check result: {password_check}")
 
-        if not user or not user.check_password(password):
+        if not user:
             return jsonify({
                 'success': False,
-                'error': 'Invalid credentials'
+                'error': 'Account does not exist. Please check your username/email or register for a new account.'
+            }), 401
+
+        if not user.check_password(password):
+            return jsonify({
+                'success': False,
+                'error': 'Incorrect password. Please try again.'
             }), 401
         
         if not user.is_active:
@@ -107,50 +125,48 @@ def login():
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    """Simple user registration"""
-    print("=== REGISTRATION REQUEST RECEIVED ===")
+    """Simple user registration that actually works"""
+    print("=== REGISTRATION REQUEST ===")
 
     try:
         data = request.get_json()
-        print(f"Request data: {data}")
-
         if not data:
-            print("ERROR: No data provided")
             return jsonify({'success': False, 'error': 'No data provided'}), 400
 
         username = data.get('username', '').strip()
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
 
-        print(f"Parsed data: username={username}, email={email}, password={'***' if password else 'EMPTY'}")
+        print(f"Registration attempt: {username}, {email}")
 
-        # Simple validation
+        # Basic validation
         if not username or not email or not password:
-            print("ERROR: Missing required fields")
             return jsonify({'success': False, 'error': 'All fields are required'}), 400
 
-        if len(password) < 6:
-            print("ERROR: Password too short")
-            return jsonify({'success': False, 'error': 'Password must be at least 6 characters'}), 400
+        if len(username) < 3:
+            return jsonify({'success': False, 'error': 'Username must be at least 3 characters'}), 400
+
+        if '@' not in email:
+            return jsonify({'success': False, 'error': 'Invalid email format'}), 400
+
+        if len(password) < 8:
+            return jsonify({'success': False, 'error': 'Password must be at least 8 characters'}), 400
 
         # Check if user exists
         if User.query.filter_by(username=username).first():
-            print("ERROR: Username exists")
             return jsonify({'success': False, 'error': 'Username already exists'}), 409
 
         if User.query.filter_by(email=email).first():
-            print("ERROR: Email exists")
             return jsonify({'success': False, 'error': 'Email already exists'}), 409
 
         # Create user
-        print("Creating new user...")
         user = User(username=username, email=email)
         user.set_password(password)
 
         db.session.add(user)
         db.session.commit()
 
-        print(f"User created successfully: {user.id}")
+        print(f"✅ User created: {user.id}")
 
         # Create token
         access_token = create_access_token(identity=user.id)
@@ -165,9 +181,7 @@ def register():
 
     except Exception as e:
         db.session.rollback()
-        print(f"REGISTRATION ERROR: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Registration error: {e}")
         return jsonify({'success': False, 'error': 'Registration failed'}), 500
 
 @auth_bp.route('/me', methods=['GET'])
@@ -215,3 +229,363 @@ def logout():
         'success': True,
         'message': 'Successfully logged out'
     }), 200
+
+# --- Password Reset System ---
+@auth_bp.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    """
+    Request password reset - generates token and sends email
+    Expected: POST /api/auth/forgot-password
+    Body: { "email": "string" }
+    Returns: { "success": boolean, "message": string }
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+
+        email = data.get('email', '').strip().lower()
+
+        if not email:
+            return jsonify({
+                'success': False,
+                'error': 'Email is required'
+            }), 400
+
+        if not validate_email(email):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid email format'
+            }), 400
+
+        # Find user by email
+        user = User.query.filter_by(email=email).first()
+
+        # Always return success message for security (don't reveal if email exists)
+        success_message = "If that email exists in our system, a password reset link has been sent."
+
+        if not user:
+            return jsonify({
+                'success': True,
+                'message': success_message
+            }), 200
+
+        # Generate reset token
+        reset_token = PasswordResetToken.create_for_user(user, hours_valid=1)
+
+        # Create reset link
+        reset_link = f"http://localhost:5173/reset-password?token={reset_token.token}"
+
+        # Send email with multiple fallback options
+        email_sent = False
+        email_method = ""
+
+        # Method 1: Try SendGrid first (Primary)
+        try:
+            sendgrid_api_key = os.environ.get('SENDGRID_API_KEY') or current_app.config.get('SENDGRID_API_KEY')
+            print(f"🔍 SendGrid API Key found: {'Yes' if sendgrid_api_key else 'No'}")
+            if sendgrid_api_key:
+                print("📧 Attempting to send email via SendGrid...")
+                email_sent = send_email_sendgrid(email, reset_link, sendgrid_api_key)
+                if email_sent:
+                    email_method = "SendGrid"
+                    print(f"✅ SendGrid email sent successfully!")
+            else:
+                print("⚠️ No SendGrid API key found, skipping SendGrid")
+        except Exception as sg_err:
+            print(f"⚠️ SendGrid error: {sg_err}")
+
+        # Method 2: Try Flask-Mail as fallback
+        if not email_sent:
+            try:
+                print("📧 Attempting to send email via Flask-Mail...")
+                if current_app.config.get('MAIL_USERNAME') and current_app.config.get('MAIL_PASSWORD'):
+                    mail = current_app.extensions.get('mail')
+                    if mail:
+                        email_sent = send_email_flask_mail(email, reset_link, mail)
+                        if email_sent:
+                            email_method = "Flask-Mail"
+            except Exception as mail_err:
+                print(f"⚠️ Flask-Mail error: {mail_err}")
+
+        # Method 3: Development mode fallback
+        if not email_sent:
+            print("📧 Using development mode - showing reset link in response")
+            return jsonify({
+                "success": True,
+                "message": "Password reset link generated (Email service unavailable)",
+                "resetLink": reset_link,
+                "debug": True
+            }), 200
+
+        # Email sent successfully
+        print(f"✅ Password reset email sent via {email_method} to {email}")
+        return jsonify({
+            "success": True,
+            "message": success_message
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Forgot password error: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to process request'
+        }), 500
+
+
+def send_email_sendgrid(email, reset_link, api_key):
+    """Send password reset email using SendGrid"""
+    try:
+        sg = SendGridAPIClient(api_key)
+
+        # Create email content
+        subject = "Reset Your SMS Guard Password"
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Reset Your Password</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+                .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+                .button {{ display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 14px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🔐 SMS Guard</h1>
+                    <h2>Password Reset Request</h2>
+                </div>
+                <div class="content">
+                    <p>Hello,</p>
+                    <p>We received a request to reset your SMS Guard password. Click the button below to create a new password:</p>
+                    <p style="text-align: center;">
+                        <a href="{reset_link}" class="button">Reset My Password</a>
+                    </p>
+                    <p><strong>This link will expire in 1 hour</strong> for your security.</p>
+                    <p>If you didn't request this password reset, please ignore this email. Your password will remain unchanged.</p>
+                    <div class="footer">
+                        <p>Best regards,<br>SMS Guard Team</p>
+                        <p><em>Protecting you from spam, one message at a time.</em></p>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        text_content = f"""
+        SMS Guard - Password Reset Request
+
+        Hello,
+
+        We received a request to reset your SMS Guard password.
+
+        Click this link to reset your password: {reset_link}
+
+        This link will expire in 1 hour for your security.
+
+        If you didn't request this password reset, please ignore this email.
+
+        Best regards,
+        SMS Guard Team
+        """
+
+        message = Mail(
+            from_email='noreply@smsguard.com',  # You can customize this
+            to_emails=email,
+            subject=subject,
+            html_content=html_content,
+            plain_text_content=text_content
+        )
+
+        response = sg.send(message)
+        print(f"📧 SendGrid response: {response.status_code}")
+        return response.status_code == 202  # SendGrid returns 202 for success
+
+    except Exception as e:
+        print(f"❌ SendGrid error: {e}")
+        return False
+
+
+def send_email_flask_mail(email, reset_link, mail):
+    """Send password reset email using Flask-Mail"""
+    try:
+        subject = "Reset Your SMS Guard Password"
+
+        html_body = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center;">
+                <h1>🔐 SMS Guard</h1>
+                <h2>Password Reset Request</h2>
+            </div>
+            <div style="background: #f9f9f9; padding: 30px;">
+                <p>Hello,</p>
+                <p>We received a request to reset your SMS Guard password. Click the link below to create a new password:</p>
+                <p style="text-align: center;">
+                    <a href="{reset_link}" style="display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Reset My Password</a>
+                </p>
+                <p><strong>This link will expire in 1 hour</strong> for your security.</p>
+                <p>If you didn't request this password reset, please ignore this email.</p>
+                <p style="text-align: center; margin-top: 20px; color: #666;">
+                    Best regards,<br>SMS Guard Team
+                </p>
+            </div>
+        </div>
+        """
+
+        text_body = f"""
+        SMS Guard - Password Reset Request
+
+        Hello,
+
+        We received a request to reset your SMS Guard password.
+
+        Click this link to reset your password: {reset_link}
+
+        This link will expire in 1 hour for your security.
+
+        If you didn't request this password reset, please ignore this email.
+
+        Best regards,
+        SMS Guard Team
+        """
+
+        msg = Message(
+            subject=subject,
+            recipients=[email],
+            body=text_body,
+            html=html_body
+        )
+        mail.send(msg)
+        return True
+
+    except Exception as e:
+        print(f"❌ Flask-Mail error: {e}")
+        return False
+
+
+
+
+    except Exception as e:
+        print(f"❌ Forgot password error: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to process request'
+        }), 500
+
+@auth_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    """
+    Reset password using token
+    Expected: POST /api/auth/reset-password
+    Body: { "token": "string", "password": "string" }
+    Returns: { "success": boolean, "message": string }
+    """
+    try:
+        print("🔄 Reset password request received")
+        data = request.get_json()
+        print(f"📥 Request data: {data}")
+
+        if not data:
+            print("❌ No data provided")
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+
+        token = data.get('token', '').strip()
+        new_password = data.get('password', '')
+        user_id = data.get('user_id', '').strip()  # Optional for backward compatibility
+
+        print(f"🎫 Token: {token[:20] if token else 'None'}...")
+        print(f"🔑 Password provided: {'Yes' if new_password else 'No'}")
+        print(f"👤 User ID provided: {'Yes' if user_id else 'No'}")
+
+        if not token:
+            print("❌ Token missing")
+            return jsonify({
+                'success': False,
+                'error': 'Reset token is required'
+            }), 400
+
+        if not new_password:
+            print("❌ Password missing")
+            return jsonify({
+                'success': False,
+                'error': 'New password is required'
+            }), 400
+
+        # Validate password strength
+        print("🔍 Validating password strength...")
+        valid_pw, pw_msg = validate_password(new_password)
+        if not valid_pw:
+            print(f"❌ Password validation failed: {pw_msg}")
+            return jsonify({
+                'success': False,
+                'error': pw_msg
+            }), 400
+
+        # Find and validate token
+        print("🔍 Looking up reset token...")
+        reset_token = PasswordResetToken.query.filter_by(token=token).first()
+
+        if not reset_token:
+            print("❌ Reset token not found in database")
+            return jsonify({
+                'success': False,
+                'error': 'Invalid reset token'
+            }), 400
+
+        print(f"✅ Token found: ID={reset_token.id}, User ID={reset_token.user_id}")
+        print(f"🕐 Token expiry: {reset_token.expiry}")
+        print(f"🔒 Token used: {reset_token.used}")
+
+        if not reset_token.is_valid():
+            print("❌ Token is not valid (expired or used)")
+            return jsonify({
+                'success': False,
+                'error': 'Reset token has expired or been used'
+            }), 400
+
+        # Get user and update password
+        user = User.query.get(reset_token.user_id)
+        if not user:
+            return jsonify({
+                'success': False,
+                'error': 'User not found'
+            }), 404
+
+        # Update password
+        user.set_password(new_password)
+
+        # Mark token as used
+        reset_token.mark_as_used()
+
+        print(f"✅ Password reset successful for user: {user.email}")
+        return jsonify({
+            'success': True,
+            'message': 'Password has been reset successfully'
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Reset password error: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to reset password'
+        }), 500
+
+
+
+

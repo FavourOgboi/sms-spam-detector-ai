@@ -5,8 +5,8 @@ import { User } from '../types/index';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (usernameOrEmail: string, password: string) => Promise<boolean>;
-  register: (username: string, email: string, password: string) => Promise<boolean>;
+  login: (usernameOrEmail: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
 }
@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
   }, []);
 
-  const login = async (usernameOrEmail: string, password: string): Promise<boolean> => {
+  const login = async (usernameOrEmail: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('🔐 AuthContext: Starting login process');
       console.log('📧 Username/Email:', usernameOrEmail);
@@ -83,18 +83,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.success && response.data) {
         console.log('✅ Login successful, setting user:', response.data.user);
         setUser(response.data.user);
-        return true;
+        return { success: true };
       } else {
         console.log('❌ Login failed:', response.error || 'Unknown error');
-        return false;
+        return { success: false, error: response.error || 'Login failed' };
       }
     } catch (error) {
       console.error('❌ Login exception:', error);
-      return false;
+      return { success: false, error: 'Login failed. Please try again.' };
     }
   };
 
-  const register = async (username: string, email: string, password: string): Promise<boolean> => {
+  const register = async (username: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('AuthContext: Starting registration process');
       console.log('Username:', username);
@@ -114,14 +114,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('Registration successful');
         // Don't automatically log in after registration
         // User should go back to login page to enter their credentials
-        return true;
+        return { success: true };
       } else {
         console.log('Registration failed:', response.error || 'Unknown error');
-        return false;
+        return { success: false, error: response.error || 'Registration failed' };
       }
     } catch (error) {
       console.error('Registration exception:', error);
-      return false;
+      return { success: false, error: 'Registration failed. Please try again.' };
     }
   };
 

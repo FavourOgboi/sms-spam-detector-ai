@@ -519,31 +519,113 @@ const Predict: React.FC = () => {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.1 }}
-                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                          className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-l-blue-500"
                         >
-                          <div className="flex items-center space-x-3">
-                            <div className={`w-3 h-3 rounded-full ${
-                              feature.direction === 'spam' ? 'bg-red-500' : 'bg-green-500'
-                            }`}></div>
-                            <span className="font-medium text-gray-900 dark:text-white">
-                              "{feature.feature}"
-                            </span>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                                feature.direction === 'spam' ? 'bg-red-500' : 'bg-green-500'
+                              }`}>
+                                <span className="text-white text-xs font-bold">
+                                  {feature.direction === 'spam' ? '!' : '✓'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-900 dark:text-white text-lg">
+                                  "{feature.feature}"
+                                </span>
+                                <span className={`ml-3 text-xs px-2 py-1 rounded-full font-medium ${
+                                  feature.direction === 'spam'
+                                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                    : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                }`}>
+                                  {feature.direction === 'spam' ? 'SPAM SIGNAL' : 'LEGITIMATE SIGNAL'}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <span className={`text-sm font-medium ${
-                              feature.direction === 'spam' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
-                            }`}>
-                              {feature.direction === 'spam' ? '→ SPAM' : '→ HAM'}
-                            </span>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {Math.abs(feature.importance).toFixed(3)}
-                            </span>
+
+                          <div className="grid grid-cols-2 gap-3 mt-3">
+                            <div className="text-center p-2 bg-white dark:bg-gray-600 rounded">
+                              <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                {Math.abs(feature.importance || 0).toFixed(4)}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                Model Weight
+                              </div>
+                            </div>
+
+                            <div className="text-center p-2 bg-white dark:bg-gray-600 rounded">
+                              <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                {(feature.frequency || feature.tf_idf_score || 0).toFixed(4)}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                TF-IDF Score
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                            <strong>AI Analysis:</strong> This word is a{' '}
+                            <span className={feature.direction === 'spam' ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-green-600 dark:text-green-400 font-semibold'}>
+                              {feature.direction === 'spam' ? 'spam indicator' : 'legitimate indicator'}
+                            </span>{' '}
+                            based on patterns learned from thousands of messages.
                           </div>
                         </motion.div>
                       ))}
                     </div>
                   </div>
                 )}
+
+                {/* Spam vs Ham Indicators Summary */}
+                {explanation.explanation?.spam_indicators || explanation.explanation?.ham_indicators ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Spam Indicators */}
+                    {explanation.explanation.spam_indicators && explanation.explanation.spam_indicators.length > 0 && (
+                      <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
+                        <h5 className="font-semibold text-red-800 dark:text-red-300 mb-3 flex items-center">
+                          <span className="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+                          SPAM Indicators ({explanation.explanation.spam_indicators.length})
+                        </h5>
+                        <div className="space-y-2">
+                          {explanation.explanation.spam_indicators.slice(0, 5).map((indicator: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between text-sm">
+                              <span className="text-red-700 dark:text-red-300 font-medium">
+                                "{indicator.feature}"
+                              </span>
+                              <span className="text-red-600 dark:text-red-400 text-xs">
+                                {Math.abs(indicator.importance).toFixed(3)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ham Indicators */}
+                    {explanation.explanation.ham_indicators && explanation.explanation.ham_indicators.length > 0 && (
+                      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                        <h5 className="font-semibold text-green-800 dark:text-green-300 mb-3 flex items-center">
+                          <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                          LEGITIMATE Indicators ({explanation.explanation.ham_indicators.length})
+                        </h5>
+                        <div className="space-y-2">
+                          {explanation.explanation.ham_indicators.slice(0, 5).map((indicator: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between text-sm">
+                              <span className="text-green-700 dark:text-green-300 font-medium">
+                                "{indicator.feature}"
+                              </span>
+                              <span className="text-green-600 dark:text-green-400 text-xs">
+                                {Math.abs(indicator.importance).toFixed(3)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
 
                 {/* Processing Info */}
                 <div className="text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-600 pt-4">
