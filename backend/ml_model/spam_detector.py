@@ -11,7 +11,6 @@ import os
 import time
 from typing import Dict, Tuple, List, Optional
 import numpy as np
-from functools import lru_cache
 
 # NLTK imports for exact notebook preprocessing
 try:
@@ -70,8 +69,6 @@ class SpamDetector:
         self.model = None
         self.vectorizer = None
         self.model_version = "1.0.0"
-        self._preprocessing_cache = {}  # Simple cache for preprocessing
-        self._max_cache_size = 100  # Limit cache size to prevent memory issues
 
         # Use correct absolute paths for model and vectorizer
         if model_path is None:
@@ -130,11 +127,6 @@ class SpamDetector:
         if not text.strip():
             return ""
 
-        # Check cache first for speed improvement
-        text_hash = hash(text)
-        if text_hash in self._preprocessing_cache:
-            return self._preprocessing_cache[text_hash]
-
         try:
             if NLTK_AVAILABLE:
                 # EXACT preprocessing from notebook transform_text function
@@ -163,34 +155,23 @@ class SpamDetector:
                     y.append(ps.stem(i))
 
                 # Join back to string
-                processed_text = " ".join(y)
-                # Cache the result for speed improvement (with size limit)
-                if len(self._preprocessing_cache) >= self._max_cache_size:
-                    # Remove oldest entry (simple FIFO)
-                    oldest_key = next(iter(self._preprocessing_cache))
-                    del self._preprocessing_cache[oldest_key]
-                self._preprocessing_cache[text_hash] = processed_text
-                return processed_text
+                return " ".join(y)
             else:
                 # Fallback preprocessing if NLTK not available
                 print("Warning: NLTK not available, using basic preprocessing")
                 text = text.lower()
                 text = ' '.join(text.split())
                 text = re.sub(r'[^a-zA-Z0-9\s]', ' ', text)
-                processed_text = ' '.join(text.split())
-                # Cache the result
-                self._preprocessing_cache[text_hash] = processed_text
-                return processed_text
+                text = ' '.join(text.split())
+                return text
         except Exception as e:
             print(f"Error in preprocessing: {e}")
             # Basic fallback preprocessing
             text = text.lower()
             text = ' '.join(text.split())
             text = re.sub(r'[^a-zA-Z0-9\s]', ' ', text)
-            processed_text = ' '.join(text.split())
-            # Cache the result
-            self._preprocessing_cache[text_hash] = processed_text
-            return processed_text
+            text = ' '.join(text.split())
+            return text
     
     def predict(self, message: str) -> Dict[str, any]:
         """
@@ -415,13 +396,13 @@ class SpamDetector:
 
                 return np.array(predictions)
 
-            # Generate LIME explanation with optimized parameters for speed
+            # Generate LIME explanation with enhanced parameters
             explanation = explainer.explain_instance(
                 message,  # Use original message, not preprocessed
                 predict_proba_for_lime,
-                num_features=min(num_features, 10),  # Limit features for performance
+                num_features=num_features,
                 labels=[0, 1],  # Explain both classes
-                num_samples=500  # Reduced samples for faster processing
+                num_samples=1000  # More samples for better stability
             )
 
             # Get prediction probabilities for detailed analysis
@@ -736,16 +717,16 @@ class SpamDetector:
             if spam_features:
                 spam_words = [f['feature'] for f in spam_features[:3]]
                 total_spam_signals = len(spam_features)
-                return f"Our AI detected SPAM because words like '{', '.join(spam_words)}' are strong spam indicators based on patterns learned from thousands of messages. Found {total_spam_signals} spam signals total."
+                return f"Your trained model detected SPAM because it learned that words like '{', '.join(spam_words)}' are strong spam indicators from your training data. Found {total_spam_signals} spam signals total."
             else:
-                return "Our AI classified this as SPAM based on learned patterns, though no individual words stood out as strong spam indicators."
+                return "Your model classified as SPAM based on learned patterns from your training data, though no individual words stood out as strong spam indicators."
         else:
             if ham_features:
                 ham_words = [f['feature'] for f in ham_features[:3]]
                 total_ham_signals = len(ham_features)
-                return f"Our AI classified this as LEGITIMATE because words like '{', '.join(ham_words)}' indicate normal messages based on patterns learned from thousands of messages. Found {total_ham_signals} legitimate signals."
+                return f"Your trained model classified as LEGITIMATE because it learned that words like '{', '.join(ham_words)}' indicate normal messages from your training data. Found {total_ham_signals} legitimate signals."
             else:
-                return "Our AI classified this as LEGITIMATE based on learned communication patterns, indicating this message appears to be normal correspondence."
+                return "Your model classified as LEGITIMATE based on learned patterns from your training data, indicating this message matches normal communication patterns."
 
     def _get_enhanced_keyword_explanation(self, message: str, prediction_result: Dict) -> Dict[str, any]:
         """

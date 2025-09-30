@@ -566,11 +566,11 @@ const Predict: React.FC = () => {
                           </div>
 
                           <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">
-                            <strong>AI Analysis:</strong> This word is a{' '}
+                            <strong>Your model learned:</strong> This word is a{' '}
                             <span className={feature.direction === 'spam' ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-green-600 dark:text-green-400 font-semibold'}>
                               {feature.direction === 'spam' ? 'spam indicator' : 'legitimate indicator'}
                             </span>{' '}
-                            based on patterns learned from thousands of messages.
+                            from your training data.
                           </div>
                         </motion.div>
                       ))}

@@ -1,289 +1,238 @@
 """
-Chatbot API Routes
-
-Provides endpoints for AI chatbot conversations, integrating with
-spam detection model and providing personalized user assistance.
+Simple keyword-based chatbot for SMS spam detection help
 """
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-import sys
-import os
-
-# Add the parent directory to the path to import chatbot service
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from ai_chatbot.chatbot_service import get_chatbot_service
-from ml_model.spam_detector import spam_detector
+from functools import wraps
+import jwt
+from config import Config
 from models import User
 
 chatbot_bp = Blueprint('chatbot', __name__)
 
-@chatbot_bp.route('/chat', methods=['POST'])
-@jwt_required()
-def chat_with_ai():
-    """
-    Chat with AI assistant about SMS messages
-    Expected: POST /api/chatbot/chat
-    Headers: Authorization: Bearer <token>
-    Body: {
-        "message": "User's message or SMS content",
-        "analyze_message": true/false (optional, default: true)
+# Simple keyword-based responses
+CHATBOT_RESPONSES = {
+    # Greetings
+    'greetings': {
+        'keywords': ['hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening'],
+        'responses': [
+            "Hello! I'm your SMS Guard assistant. I can help you understand spam messages and how to stay safe. What would you like to know?",
+            "Hi there! I'm here to help you with spam detection. Ask me anything about identifying spam messages!",
+            "Hey! I can help you understand spam patterns and protect yourself from scams. How can I assist you?"
+        ]
+    },
+    
+    # What is spam
+    'what_is_spam': {
+        'keywords': ['what is spam', 'define spam', 'spam meaning', 'what spam'],
+        'responses': [
+            "Spam messages are unwanted or unsolicited messages, often sent in bulk. They can be advertisements, scams, phishing attempts, or malicious content trying to steal your information or money."
+        ]
+    },
+    
+    # How to identify spam
+    'identify_spam': {
+        'keywords': ['how to identify', 'how to detect', 'how to spot', 'recognize spam', 'tell if spam', 'identify spam'],
+        'responses': [
+            "Here are key signs of spam:\n• Urgent language (ACT NOW, LIMITED TIME)\n• Requests for personal info (passwords, bank details)\n• Too good to be true offers (FREE MONEY, WIN PRIZES)\n• Unknown senders\n• Suspicious links\n• Poor grammar or spelling\n• Threats or pressure tactics"
+        ]
+    },
+    
+    # Urgent/pressure tactics
+    'urgent': {
+        'keywords': ['urgent', 'act now', 'limited time', 'expires', 'hurry', 'immediately', 'right now'],
+        'responses': [
+            "⚠️ SPAM ALERT: Messages with urgent language like 'ACT NOW' or 'LIMITED TIME' are classic spam tactics. Scammers create false urgency to make you act without thinking. Legitimate companies rarely pressure you this way."
+        ]
+    },
+    
+    # Free offers
+    'free_offers': {
+        'keywords': ['free', 'win', 'prize', 'winner', 'congratulations', 'won', 'claim'],
+        'responses': [
+            "⚠️ SPAM ALERT: Messages offering free prizes, money, or claiming you've won something are usually scams. If you didn't enter a contest, you didn't win. These messages try to steal your personal information or money."
+        ]
+    },
+    
+    # Money/financial
+    'money': {
+        'keywords': ['money', 'cash', 'bank', 'account', 'credit card', 'payment', 'transfer', 'loan'],
+        'responses': [
+            "⚠️ SPAM ALERT: Messages about money, bank accounts, or payments from unknown sources are often scams. Never share financial information via text. Banks will never ask for passwords or PINs through SMS."
+        ]
+    },
+    
+    # Links and clicking
+    'links': {
+        'keywords': ['click here', 'link', 'visit', 'website', 'url', 'http'],
+        'responses': [
+            "⚠️ SPAM ALERT: Be very careful with links in text messages! Spam messages often contain malicious links that can:\n• Steal your information\n• Install malware\n• Lead to fake websites\n\nNever click links from unknown senders. If it's supposedly from a company you know, go directly to their official website instead."
+        ]
+    },
+    
+    # Personal information
+    'personal_info': {
+        'keywords': ['password', 'pin', 'social security', 'verify', 'confirm', 'update', 'account details'],
+        'responses': [
+            "⚠️ SPAM ALERT: NEVER share personal information via text message! Legitimate companies will NEVER ask for:\n• Passwords or PINs\n• Social Security numbers\n• Bank account details\n• Credit card numbers\n\nThis is a phishing attempt. Delete the message immediately."
+        ]
+    },
+    
+    # What to do
+    'what_to_do': {
+        'keywords': ['what should i do', 'what to do', 'received spam', 'got spam', 'help'],
+        'responses': [
+            "If you receive a spam message:\n1. DON'T click any links\n2. DON'T reply\n3. DON'T share personal info\n4. DELETE the message\n5. BLOCK the sender\n6. REPORT to your carrier (forward to 7726/SPAM)\n7. Use our SMS Guard tool to analyze suspicious messages!"
+        ]
+    },
+    
+    # How the detector works
+    'how_it_works': {
+        'keywords': ['how does it work', 'how it works', 'how detector', 'how does this work'],
+        'responses': [
+            "Our SMS Guard uses machine learning trained on thousands of real spam and legitimate messages. It analyzes:\n• Word patterns\n• Suspicious phrases\n• Common spam tactics\n• Message structure\n\nJust paste any message into the detector, and it will tell you if it's likely spam with a confidence score!"
+        ]
+    },
+    
+    # Safety tips
+    'safety': {
+        'keywords': ['stay safe', 'protect', 'security', 'safe', 'tips'],
+        'responses': [
+            "🛡️ SMS Safety Tips:\n• Never share passwords via text\n• Don't click unknown links\n• Verify sender identity\n• Use two-factor authentication\n• Keep your phone updated\n• Trust your instincts - if it feels wrong, it probably is\n• Use SMS Guard to check suspicious messages!"
+        ]
+    },
+    
+    # Thanks
+    'thanks': {
+        'keywords': ['thank', 'thanks', 'appreciate'],
+        'responses': [
+            "You're welcome! Stay safe out there! 🛡️",
+            "Happy to help! Remember, when in doubt, use SMS Guard to check any suspicious message!",
+            "Glad I could help! Feel free to ask if you have more questions about spam detection."
+        ]
+    },
+    
+    # Default/fallback
+    'default': {
+        'keywords': [],
+        'responses': [
+            "I can help you with:\n• Identifying spam messages\n• Understanding spam tactics\n• Staying safe from scams\n• Using the SMS Guard detector\n\nTry asking: 'How do I identify spam?' or 'What should I do if I receive spam?'"
+        ]
     }
-    """
-    try:
-        # Get current user
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        
-        if not user:
-            return jsonify({
-                'success': False,
-                'error': 'User not found'
-            }), 404
-        
-        # Get request data
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                'success': False,
-                'error': 'No data provided'
-            }), 400
-        
-        message = data.get('message', '').strip()
-        if not message:
-            return jsonify({
-                'success': False,
-                'error': 'Message cannot be empty'
-            }), 400
-        
-        analyze_message = data.get('analyze_message', True)
-        
-        # Get chatbot service with spam detector
-        chatbot = get_chatbot_service(spam_detector)
-        
-        # Chat with the AI
-        response = chatbot.chat_with_user(
-            user_id=str(current_user_id),
-            user_name=user.username,  # Use username as display name
-            message=message,
-            analyze_with_model=analyze_message
-        )
-        
-        if response['success']:
-            return jsonify({
-                'success': True,
-                'data': {
-                    'bot_response': response['bot_response'],
-                    'user_message': response['user_message'],
-                    'timestamp': response['timestamp'],
-                    'spam_analysis': response.get('spam_analysis'),
-                    'explanation': response.get('explanation'),
-                    'conversation_length': response.get('conversation_length', 1),
-                    'processing_time_ms': response.get('processing_time_ms', 0)
-                }
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': response.get('error', 'Chat failed')
-            }), 500
-    
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': f'Chat error: {str(e)}'
-        }), 500
+}
 
-@chatbot_bp.route('/conversation', methods=['GET'])
-@jwt_required()
-def get_conversation_history():
-    """
-    Get conversation history for current user
-    Expected: GET /api/chatbot/conversation
-    Headers: Authorization: Bearer <token>
-    """
-    try:
-        # Get current user
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
+def token_required(f):
+    """Decorator to require valid JWT token"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        auth_header = request.headers.get('Authorization')
         
-        if not user:
-            return jsonify({
-                'success': False,
-                'error': 'User not found'
-            }), 404
+        if auth_header:
+            try:
+                token = auth_header.split(' ')[1]
+            except IndexError:
+                return jsonify({'success': False, 'error': 'Invalid token format'}), 401
         
-        # Get chatbot service
-        chatbot = get_chatbot_service()
-        
-        # Get conversation history
-        conversation = chatbot.get_user_conversation(str(current_user_id))
-        summary = chatbot.get_conversation_summary(str(current_user_id))
-        
-        return jsonify({
-            'success': True,
-            'data': {
-                'conversation': conversation,
-                'summary': summary,
-                'user_name': user.username
-            }
-        }), 200
-    
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': f'Failed to get conversation: {str(e)}'
-        }), 500
-
-@chatbot_bp.route('/clear', methods=['POST'])
-@jwt_required()
-def clear_conversation():
-    """
-    Clear conversation history for current user
-    Expected: POST /api/chatbot/clear
-    Headers: Authorization: Bearer <token>
-    """
-    try:
-        # Get current user
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        
-        if not user:
-            return jsonify({
-                'success': False,
-                'error': 'User not found'
-            }), 404
-        
-        # Get chatbot service
-        chatbot = get_chatbot_service()
-        
-        # Clear conversation
-        if str(current_user_id) in chatbot.conversation_memory:
-            del chatbot.conversation_memory[str(current_user_id)]
-        
-        return jsonify({
-            'success': True,
-            'message': f'Conversation cleared for {user.username}'
-        }), 200
-    
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': f'Failed to clear conversation: {str(e)}'
-        }), 500
-
-@chatbot_bp.route('/quick-analyze', methods=['POST'])
-@jwt_required()
-def quick_analyze_message():
-    """
-    Quick analysis of a message with AI advice (without full conversation)
-    Expected: POST /api/chatbot/quick-analyze
-    Headers: Authorization: Bearer <token>
-    Body: {
-        "message": "SMS message to analyze"
-    }
-    """
-    try:
-        # Get current user
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        
-        if not user:
-            return jsonify({
-                'success': False,
-                'error': 'User not found'
-            }), 404
-        
-        # Get request data
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                'success': False,
-                'error': 'No data provided'
-            }), 400
-        
-        message = data.get('message', '').strip()
-        if not message:
-            return jsonify({
-                'success': False,
-                'error': 'Message cannot be empty'
-            }), 400
-        
-        # Get chatbot service
-        chatbot = get_chatbot_service(spam_detector)
-        
-        # Analyze message context
-        context = chatbot.analyze_message_context(message)
-        
-        # Get spam prediction
-        spam_prediction = None
-        explanation = None
+        if not token:
+            return jsonify({'success': False, 'error': 'Token is missing'}), 401
         
         try:
-            spam_prediction = spam_detector.predict(message)
-            explanation = spam_detector.explain_prediction(message, num_features=3)
-        except Exception as e:
-            print(f"Error in spam analysis: {e}")
+            data = jwt.decode(token, Config.SECRET_KEY, algorithms=['HS256'])
+            current_user = User.query.get(data['user_id'])
+            if not current_user:
+                return jsonify({'success': False, 'error': 'User not found'}), 401
+        except jwt.ExpiredSignatureError:
+            return jsonify({'success': False, 'error': 'Token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'success': False, 'error': 'Invalid token'}), 401
         
-        # Generate quick advice
-        advice = chatbot.generate_personalized_response(
-            user_name=user.username,
-            message=message,
-            spam_prediction=spam_prediction,
-            explanation=explanation,
-            conversation_history=[]
-        )
-        
-        return jsonify({
-            'success': True,
-            'data': {
-                'message': message,
-                'advice': advice,
-                'context_analysis': context,
-                'spam_prediction': spam_prediction,
-                'explanation': explanation,
-                'user_name': user.username
-            }
-        }), 200
+        return f(current_user, *args, **kwargs)
     
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': f'Analysis failed: {str(e)}'
-        }), 500
+    return decorated
 
-@chatbot_bp.route('/scenarios', methods=['GET'])
-@jwt_required()
-def get_spam_scenarios():
+def get_chatbot_response(message):
+    """Get response based on keywords in message"""
+    import random
+    
+    message_lower = message.lower().strip()
+    
+    # Check each category for keyword matches
+    for category, data in CHATBOT_RESPONSES.items():
+        if category == 'default':
+            continue
+            
+        for keyword in data['keywords']:
+            if keyword in message_lower:
+                # Return a random response from this category
+                return random.choice(data['responses'])
+    
+    # No match found, return default
+    return random.choice(CHATBOT_RESPONSES['default']['responses'])
+
+@chatbot_bp.route('/chat', methods=['POST'])
+@token_required
+def chat(current_user):
     """
-    Get information about common spam scenarios
-    Expected: GET /api/chatbot/scenarios
-    Headers: Authorization: Bearer <token>
+    Simple chatbot endpoint
+    Expected: POST /api/chatbot/chat
+    Body: { "message": "string" }
+    Returns: { "success": boolean, "data": { "response": string } }
     """
     try:
-        # Get chatbot service
-        chatbot = get_chatbot_service()
+        data = request.get_json()
         
-        # Format scenarios for frontend
-        scenarios = {}
-        for scenario_name, scenario_data in chatbot.spam_scenarios.items():
-            scenarios[scenario_name] = {
-                'name': scenario_name.replace('_', ' ').title(),
-                'keywords': scenario_data['keywords'],
-                'advice': scenario_data['advice']
-            }
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        message = data.get('message', '').strip()
+        
+        if not message:
+            return jsonify({
+                'success': False,
+                'error': 'Message is required'
+            }), 400
+        
+        # Get chatbot response
+        response = get_chatbot_response(message)
         
         return jsonify({
             'success': True,
             'data': {
-                'scenarios': scenarios,
-                'total_scenarios': len(scenarios)
+                'response': response,
+                'user': current_user.username
             }
         }), 200
-    
+        
     except Exception as e:
+        print(f"Chatbot error: {str(e)}")
         return jsonify({
             'success': False,
-            'error': f'Failed to get scenarios: {str(e)}'
+            'error': 'An error occurred processing your message'
         }), 500
+
+@chatbot_bp.route('/suggestions', methods=['GET'])
+@token_required
+def get_suggestions(current_user):
+    """
+    Get suggested questions
+    Returns: { "success": boolean, "data": { "suggestions": [string] } }
+    """
+    suggestions = [
+        "How do I identify spam messages?",
+        "What should I do if I receive spam?",
+        "How does the spam detector work?",
+        "What are common spam tactics?",
+        "How can I stay safe from scams?"
+    ]
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'suggestions': suggestions
+        }
+    }), 200
+

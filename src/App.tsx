@@ -45,9 +45,9 @@ function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="predict" element={<Predict />} />
-              <Route path="chat" element={<Chat />} />
               <Route path="history" element={<History />} />
               <Route path="explanation" element={<Explanation />} />
+              <Route path="chat" element={<Chat />} />
               <Route path="profile" element={<Profile />} />
               <Route path="contact" element={<Contact />} />
             </Route>

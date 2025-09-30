@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  LayoutDashboard, 
-  MessageSquare, 
-  History, 
-  Info, 
-  User, 
-  LogOut, 
-  Menu, 
+import {
+  LayoutDashboard,
+  MessageSquare,
+  History,
+  Info,
+  User,
+  LogOut,
+  Menu,
   X,
   Shield,
   Sun,
@@ -52,9 +52,9 @@ const Navigation: React.FC = () => {
   const navigationItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Predict', path: '/predict', icon: MessageSquare },
-    { name: 'AI Chat', path: '/chat', icon: Bot },
     { name: 'History', path: '/history', icon: History },
     { name: 'Explanation', path: '/explanation', icon: Info },
+    { name: 'AI Chat', path: '/chat', icon: Bot },
     { name: 'Profile', path: '/profile', icon: User },
     { name: 'Contact', path: '/contact', icon: MessageCircle },
   ];

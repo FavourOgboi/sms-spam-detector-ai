@@ -1,226 +1,217 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { 
-  MessageCircle, 
-  Bot, 
-  Shield, 
-  Lightbulb, 
-  AlertTriangle,
-  CheckCircle,
-  Info,
-  Zap
-} from 'lucide-react';
-import ChatBot from '../components/ChatBot';
-import { chatbotService } from '../services/chatbotService';
+import React, { useState, useEffect, useRef } from 'react';
+import { MessageCircle, Send, Loader } from 'lucide-react';
+import { sendMessage, getSuggestions, generateMessageId, ChatMessage } from '../services/chatbotService';
 
 const Chat: React.FC = () => {
-  const [quickAnalysisMessage, setQuickAnalysisMessage] = useState('');
-  const [quickAnalysisResult, setQuickAnalysisResult] = useState<any>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleQuickAnalysis = async () => {
-    if (!quickAnalysisMessage.trim()) return;
+  useEffect(() => {
+    // Add welcome message
+    const welcomeMessage: ChatMessage = {
+      id: generateMessageId(),
+      text: "👋 Hi! I'm your SMS Guard assistant. I can help you understand spam messages and how to stay safe. What would you like to know?",
+      sender: 'bot',
+      timestamp: new Date()
+    };
+    setMessages([welcomeMessage]);
 
-    setIsAnalyzing(true);
-    try {
-      const result = await chatbotService.quickAnalyze(quickAnalysisMessage);
-      setQuickAnalysisResult(result);
-    } catch (error) {
-      console.error('Quick analysis error:', error);
-    } finally {
-      setIsAnalyzing(false);
+    // Load suggestions
+    loadSuggestions();
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const loadSuggestions = async () => {
+    const response = await getSuggestions();
+    if (response.success && response.data) {
+      setSuggestions(response.data.suggestions);
     }
   };
 
-  const exampleMessages = [
-    "Your account is expiring. Verify your information to continue service: [link]",
-    "Congratulations! You've won $1000! Click here to claim your prize!",
-    "Hi, how are you doing today?",
-    "URGENT! Your bank account has been compromised. Click immediately!",
-    "Meeting scheduled for 3pm in conference room B"
-  ];
+  const handleSendMessage = async (messageText?: string) => {
+    const textToSend = messageText || inputMessage.trim();
+    
+    if (!textToSend || isLoading) return;
+
+    // Add user message
+    const userMessage: ChatMessage = {
+      id: generateMessageId(),
+      text: textToSend,
+      sender: 'user',
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setIsLoading(true);
+
+    try {
+      // Send to chatbot
+      const response = await sendMessage(textToSend);
+
+      if (response.success && response.data) {
+        // Add bot response
+        const botMessage: ChatMessage = {
+          id: generateMessageId(),
+          text: response.data.response,
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, botMessage]);
+      } else {
+        // Add error message
+        const errorMessage: ChatMessage = {
+          id: generateMessageId(),
+          text: `Sorry, I encountered an error: ${response.error || 'Unknown error'}`,
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } catch (error) {
+      const errorMessage: ChatMessage = {
+        id: generateMessageId(),
+        text: 'Sorry, I encountered an error. Please try again.',
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    handleSendMessage(suggestion);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
-        >
-          <div className="flex items-center justify-center mb-4">
-            <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-4">
-              <MessageCircle className="h-8 w-8 text-white" />
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
+              <MessageCircle className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-                AI Chat Assistant
-              </h1>
-              <p className="text-lg text-gray-600 dark:text-gray-300 mt-2">
-                Get personalized help with SMS spam detection
-              </p>
+              <h1 className="text-2xl font-bold text-gray-800">SMS Guard Assistant</h1>
+              <p className="text-gray-600">Ask me anything about spam detection and staying safe</p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Chat Area */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="lg:col-span-2"
-          >
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden" style={{ height: '600px' }}>
-              <ChatBot className="h-full" />
-            </div>
-          </motion.div>
-
-          {/* Sidebar */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-            className="space-y-6"
-          >
-            {/* Features Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                <Bot className="h-5 w-5 mr-2 text-purple-500" />
-                AI Features
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-start space-x-3">
-                  <Shield className="h-5 w-5 text-green-500 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">Spam Detection</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Analyzes messages using your trained AI model
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <Lightbulb className="h-5 w-5 text-yellow-500 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">Smart Explanations</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Shows why messages are flagged as spam
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-blue-500 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">Personalized Advice</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Tailored recommendations for your situation
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <Zap className="h-5 w-5 text-purple-500 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">Context Aware</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Understands conversation and message context
-                    </p>
-                  </div>
+        {/* Chat Container */}
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col" style={{ height: '600px' }}>
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                    message.sender === 'user'
+                      ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{message.text}</p>
+                  <p
+                    className={`text-xs mt-1 ${
+                      message.sender === 'user' ? 'text-blue-100' : 'text-gray-500'
+                    }`}
+                  >
+                    {new Date(message.timestamp).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
                 </div>
               </div>
-            </div>
+            ))}
+            
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 rounded-2xl px-4 py-3">
+                  <Loader className="w-5 h-5 text-gray-600 animate-spin" />
+                </div>
+              </div>
+            )}
+            
+            <div ref={messagesEndRef} />
+          </div>
 
-            {/* Quick Examples */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                <Info className="h-5 w-5 mr-2 text-blue-500" />
-                Try These Examples
-              </h3>
-              <div className="space-y-2">
-                {exampleMessages.slice(0, 3).map((message, index) => (
+          {/* Suggestions */}
+          {messages.length === 1 && suggestions.length > 0 && (
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+              <p className="text-sm text-gray-600 mb-2">💡 Try asking:</p>
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((suggestion, index) => (
                   <button
                     key={index}
-                    onClick={() => setQuickAnalysisMessage(message)}
-                    className="w-full text-left p-3 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    onClick={() => handleSuggestionClick(suggestion)}
+                    className="px-3 py-1 bg-white border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-blue-50 hover:border-blue-300 transition-colors"
                   >
-                    "{message.length > 60 ? message.substring(0, 60) + '...' : message}"
+                    {suggestion}
                   </button>
                 ))}
               </div>
             </div>
+          )}
 
-            {/* Safety Tips */}
-            <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-2xl shadow-lg p-6 border border-red-200 dark:border-red-800">
-              <h3 className="text-xl font-semibold text-red-800 dark:text-red-300 mb-4 flex items-center">
-                <AlertTriangle className="h-5 w-5 mr-2" />
-                Safety Tips
-              </h3>
-              <div className="space-y-2 text-sm text-red-700 dark:text-red-300">
-                <p>• Never click suspicious links</p>
-                <p>• Don't share personal information</p>
-                <p>• Verify with official sources</p>
-                <p>• Trust your instincts</p>
-                <p>• When in doubt, delete and block</p>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Quick Analysis Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="mt-8"
-        >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-              <Zap className="h-5 w-5 mr-2 text-yellow-500" />
-              Quick Analysis
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Get instant AI analysis of any message without starting a full conversation.
-            </p>
-            
-            <div className="flex space-x-4">
-              <div className="flex-1">
-                <textarea
-                  value={quickAnalysisMessage}
-                  onChange={(e) => setQuickAnalysisMessage(e.target.value)}
-                  placeholder="Paste a suspicious message here for quick analysis..."
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 resize-none"
-                  rows={3}
-                />
-              </div>
+          {/* Input */}
+          <div className="p-4 bg-gray-50 border-t border-gray-200">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type your message..."
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={isLoading}
+              />
               <button
-                onClick={handleQuickAnalysis}
-                disabled={!quickAnalysisMessage.trim() || isAnalyzing}
-                className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center min-w-[120px]"
+                onClick={() => handleSendMessage()}
+                disabled={!inputMessage.trim() || isLoading}
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
               >
-                {isAnalyzing ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  'Analyze'
-                )}
+                <Send className="w-5 h-5" />
+                Send
               </button>
             </div>
-
-            {quickAnalysisResult && quickAnalysisResult.success && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
-              >
-                <div className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
-                  {quickAnalysisResult.data.advice}
-                </div>
-              </motion.div>
-            )}
           </div>
-        </motion.div>
+        </div>
+
+        {/* Info */}
+        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <p className="text-sm text-blue-800">
+            <strong>💡 Tip:</strong> This chatbot uses keyword matching to provide helpful information about spam detection. 
+            Ask about identifying spam, staying safe, or how the detector works!
+          </p>
+        </div>
       </div>
     </div>
   );
 };
 
 export default Chat;
+
