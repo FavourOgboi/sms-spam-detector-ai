@@ -68,11 +68,20 @@ export interface ConsensusResult {
   model_count?: number;
 }
 
+export interface WeightedResult {
+  weighted_spam_prob: number | null;
+  weighted_majority: 'spam' | 'ham' | 'unknown';
+}
+
 export interface EnsemblePredictionResult {
   consensus: ConsensusResult;
   model_results: {
     [modelName: string]: PredictionResult;
   };
+  weighted_result: WeightedResult;
+  confidence_level: string;
+  suggestion: string;
+  message: string;
 }
 
 export interface UserStats {

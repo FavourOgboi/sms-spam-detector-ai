@@ -1,3 +1,42 @@
+# --- Weighted Voting by F1 ---
+def predict_weighted_consensus(msg, metric='f1'):
+    """
+    Weighted consensus using model F1 (or other metric) as weights.
+    Returns weighted spam probability and weighted majority.
+    """
+    clean = transform_text(msg)
+    features = tfidf.transform([clean])
+    weighted_probs = []
+    weights = []
+    model_votes = []
+    details = []
+    for name, r in model_results.items():
+        model = r["model"]
+        weight = r.get(metric, 1.0)
+        if hasattr(model, "predict_proba"):
+            proba = float(model.predict_proba(features)[0][1])
+        elif hasattr(model, "decision_function"):
+            df = model.decision_function(features)[0]
+            proba = float(1 / (1 + np.exp(-df)))
+            proba = float(np.clip(proba, 0.01, 0.99))
+        else:
+            continue
+        weighted_probs.append(proba * weight)
+        model_votes.append(('spam' if proba >= 0.5 else 'ham', weight))
+        weights.append(weight)
+        details.append((name, weight, proba, proba * weight))
+    if not weights:
+        return {"weighted_spam_prob": None, "weighted_majority": "Unknown", "weights": [], "details": []}
+    weighted_spam_prob = float(sum(weighted_probs) / sum(weights))
+    spam_weight = sum(w for v, w in model_votes if v == 'spam')
+    ham_weight = sum(w for v, w in model_votes if v == 'ham')
+    weighted_majority = 'spam' if spam_weight > ham_weight else 'ham' if ham_weight > spam_weight else 'unknown'
+    return {
+        "weighted_spam_prob": weighted_spam_prob,
+        "weighted_majority": weighted_majority,
+        "weights": weights,
+        "details": details
+    }
 """
 SMS Spam Detector - Multi-Model Evaluation Script
 
@@ -119,10 +158,14 @@ ensembles = {
 def fit_and_eval(model, name):
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
+    # Improved confidence calculation for SVM and models without predict_proba
     if hasattr(model, "predict_proba"):
         y_proba = model.predict_proba(X_test)[:,1]
     elif hasattr(model, "decision_function"):
-        y_proba = model.decision_function(X_test)
+        # Calibrate decision_function to [0,1] using a sigmoid, then clip to avoid extreme 0/1
+        df = model.decision_function(X_test)
+        y_proba = 1 / (1 + np.exp(-df))
+        y_proba = np.clip(y_proba, 0.01, 0.99)
     else:
         y_proba = None
     acc = accuracy_score(y_test, y_pred)
@@ -245,12 +288,14 @@ def predict_consensus(msg):
     for name, r in model_results.items():
         model = r["model"]
         pred = model.predict(features)[0]
+        # Improved confidence calculation for SVM and models without predict_proba
         if hasattr(model, "predict_proba"):
             proba = model.predict_proba(features)[0][1]
             conf = float(proba)
         elif hasattr(model, "decision_function"):
-            df = model.decision_function(features)
+            df = model.decision_function(features)[0]
             conf = float(1 / (1 + np.exp(-df)))
+            conf = float(np.clip(conf, 0.01, 0.99))
         else:
             conf = None
         model_results_dict[name] = {
@@ -268,10 +313,10 @@ def predict_consensus(msg):
     spam_votes = vote_counts.get("Spam", 0)
     ham_votes = vote_counts.get("Ham", 0)
     # Weighted vote: average confidence for spam/ham
-    spam_confidences = [r["confidence"] for r in model_results_dict.values() if r["prediction"] == "spam" and isinstance(r["confidence"], (int, float))]
-    ham_confidences = [r["confidence"] for r in model_results_dict.values() if r["prediction"] == "ham" and isinstance(r["confidence"], (int, float))]
-    avg_spam_conf = np.mean(spam_confidences) if spam_confidences else 0
-    avg_ham_conf = np.mean(ham_confidences) if ham_confidences else 0
+    spam_confidences = [r["confidence"] for r in model_results_dict.values() if r["prediction"] == "spam" and r["confidence"] is not None]
+    ham_confidences = [r["confidence"] for r in model_results_dict.values() if r["prediction"] == "ham" and r["confidence"] is not None]
+    avg_spam_conf = float(np.mean(spam_confidences)) if spam_confidences else 0.0
+    avg_ham_conf = float(np.mean(ham_confidences)) if ham_confidences else 0.0
     weighted_vote = "Spam" if avg_spam_conf > avg_ham_conf else "Ham" if avg_ham_conf > avg_spam_conf else "Unknown"
     # Average confidence of majority-vote models
     if majority == "Spam":
@@ -299,22 +344,108 @@ def predict_consensus(msg):
 if __name__ == "__main__":
     print("All models loaded and ready.")
     print("Enter an SMS message to test all models (or type 'exit' to quit):")
+    history = []
     while True:
         try:
-            input_message = input("\nEnter an SMS message: ").strip()
+            input_message = input("\nEnter an SMS message (or type 'history', 'explain', or 'exit'): ").strip()
         except EOFError:
-            break 
+            break
         if input_message.lower() == "exit":
             break
+        if input_message.lower() == "history":
+            print("\nPrediction History:")
+            for idx, (msg, res) in enumerate(history, 1):
+                print(f"{idx}. {msg}")
+            continue
+        if input_message.lower().startswith("explain"):
+            # Usage: explain <number> (from history)
+            parts = input_message.split()
+            if len(parts) == 2 and parts[1].isdigit():
+                idx = int(parts[1]) - 1
+                if 0 <= idx < len(history):
+                    msg, _ = history[idx]
+                    explanation = explain_consensus_prediction(msg)
+                    print("\nWord-level Explanation:")
+                    if explanation.get("success"):
+                        for feat in explanation["top_features"]:
+                            print(f"{feat['feature']}: {feat['direction']} (importance={feat['importance']:.3f})")
+                        print("Summary:", explanation["summary"])
+                    else:
+                        print("Explanation not available.")
+                else:
+                    print("Invalid history index.")
+            else:
+                print("Usage: explain <number> (where number is from history list)")
+            continue
         result = predict_consensus(input_message)
-        print("\nModel Results:")
-        print("{:<20} {:<10} {:<10}".format("Model", "Prediction", "Confidence"))
-        for model_name, model_res in result["model_results"].items():
-            print("{:<20} {:<10} {:<10}".format(
-                model_name,
-                model_res.get("prediction", "N/A"),
-                f"{model_res.get('confidence', 'N/A'):.2f}" if isinstance(model_res.get("confidence"), (int, float)) else "N/A"
-            ))
+        history.append((input_message, result))
+        # --- FORMATTED OUTPUT ---
+        print("="*27)
+        print("\U0001F4E9 SMS Spam Detection Result")
+        print("="*27)
+        print(f"\nMessage: \"{input_message}\"\n")
+
         consensus = result["consensus"]
-        print(f"\nConsensus: {consensus['majority_vote']} ({consensus['majority_count']} out of {consensus['total_votes']}) with confidence {consensus['confidence']}%")
+        weighted = predict_weighted_consensus(input_message, metric='f1')
+        # Weighted confidence
+        if weighted['weighted_majority'] == 'spam':
+            weighted_conf = weighted['weighted_spam_prob']
+        elif weighted['weighted_majority'] == 'ham':
+            weighted_conf = 1 - weighted['weighted_spam_prob']
+        else:
+            weighted_conf = None
+
+        # Confidence level
+        if weighted_conf is not None:
+            if weighted_conf >= 0.8:
+                conf_level = 'HIGH \u26a0\ufe0f'
+            elif weighted_conf >= 0.6:
+                conf_level = 'MEDIUM \u2139\ufe0f'
+            else:
+                conf_level = 'LOW \u2753'
+        else:
+            conf_level = 'N/A'
+
+        print("Final Suggestion:")
+        print(f"- Consensus (Majority Vote): {consensus['majority_vote'].upper()} ({consensus['majority_count']}/{consensus['total_votes']} models)")
+        if weighted_conf is not None:
+            print(f"- Weighted Vote (by F1 score): {weighted['weighted_majority'].upper()} ({weighted_conf*100:.1f}% confidence)")
+        else:
+            print(f"- Weighted Vote (by F1 score): Not enough data")
+
+        print(f"\nOverall Confidence: {conf_level}")
+        if weighted['weighted_majority'] == 'spam' and weighted_conf is not None:
+            if weighted_conf >= 0.8:
+                print("This message is likely SPAM. Be cautious and verify the sender before taking any action.")
+            elif weighted_conf >= 0.6:
+                print("This message might be SPAM. Be cautious and verify the sender before taking any action.")
+            else:
+                print("There is some suspicion this is SPAM. Use caution and double-check the message source.")
+        elif weighted['weighted_majority'] == 'ham' and weighted_conf is not None:
+            if weighted_conf >= 0.8:
+                print("This message is likely safe (not spam).")
+            elif weighted_conf >= 0.6:
+                print("This message appears safe, but always be cautious with unknown senders.")
+            else:
+                print("The message is probably safe, but confidence is low. Use your judgment.")
+        else:
+            print("The models could not agree. Please review the message carefully.")
+
+        print("\n" + "-"*28)
+        print("Individual Model Results")
+        print("-"*28)
+        print(f"{'Model':<22} {'Prediction':<12} {'Confidence'}")
+        print("-"*48)
+        for model_name, model_res in result["model_results"].items():
+            conf = model_res.get('confidence', 'N/A')
+            conf_str = f"{conf*100:.1f}%" if isinstance(conf, (int, float)) else "N/A"
+            print(f"{model_name:<22} {model_res.get('prediction','N/A').upper():<12} {conf_str}")
+        print("-"*48)
+        print(f"Spam Votes: {consensus['spam_votes']} | Ham Votes: {consensus['ham_votes']}")
+
+        print("\n" + "="*27 + "\n")
+        # --- Print model performance metrics ---
+        print("\nModel Performance Metrics (on test set):")
+        for model_name, model_info in model_results.items():
+            print(f"{model_name}: Accuracy={model_info['accuracy']:.2f}, Precision={model_info['precision']:.2f}, Recall={model_info['recall']:.2f}, F1={model_info['f1']:.2f}, ROC_AUC={model_info['roc_auc'] if model_info['roc_auc'] is not None else 'N/A'}")
         print("\n" + "="*60 + "\n")
