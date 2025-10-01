@@ -1,0 +1,30 @@
+# fly-frontend.toml for deploying React/Vite frontend as a static site on Fly.io
+
+app = "sms-guard-frontend"
+
+[build]
+  dockerfile = "Dockerfile-frontend"
+
+[env]
+  NODE_ENV = "production"
+
+[experimental]
+  auto_rollback = true
+
+[[services]]
+  internal_port = 80
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.tcp_checks]]
+    interval = 10000
+    timeout = 2000
+    grace_period = "10s"
+    restart_limit = 0

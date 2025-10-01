@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useAuth } from '../contexts/AuthContext';
-import { userService } from '../services/api';
+import { userService, getModelMetrics } from '../services/api';
 import { UserStats } from '../types/index';
 
 const Dashboard: React.FC = () => {
@@ -76,40 +76,12 @@ const Dashboard: React.FC = () => {
   };
 
   // Dynamic model accuracy for the most recent prediction
+  // NOTE: To display the model accuracy for the model with the highest confidence for the most recent prediction,
+  // you must pass the latest model_results from the prediction page to the dashboard (e.g., via React context, Redux, or localStorage).
+  // The code below is a placeholder and will fallback to primaryAccuracy if model_results is not available.
   useEffect(() => {
-    async function fetchTopModelAccuracy() {
-      if (!stats || !stats.recentPredictions || stats.recentPredictions.length === 0) {
-        setTopModel(null);
-        return;
-      }
-      const lastPrediction = stats.recentPredictions[0];
-      if (!lastPrediction || !lastPrediction.model_results) {
-        setTopModel(null);
-        return;
-      }
-      // Find the model with the highest confidence
-      let top = { name: "", confidence: -1 };
-      Object.entries(lastPrediction.model_results).forEach(([name, res]: [string, any]) => {
-        if (typeof res.confidence === "number" && res.confidence > top.confidence) {
-          top = { name, confidence: res.confidence };
-        }
-      });
-      if (top.name) {
-        try {
-          const response = await userService.getModelMetrics?.();
-          if (response && response.success && response.data && response.data[top.name]) {
-            setTopModel({ name: top.name, accuracy: response.data[top.name].accuracy });
-          } else {
-            setTopModel(null);
-          }
-        } catch {
-          setTopModel(null);
-        }
-      } else {
-        setTopModel(null);
-      }
-    }
-    fetchTopModelAccuracy();
+    // Example: If you have access to model_results, use getTopModelAccuracy here.
+    setTopModel(null);
   }, [stats]);
 
   const primaryAccuracy = getPrimaryAccuracy();
