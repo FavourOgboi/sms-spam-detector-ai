@@ -3,9 +3,7 @@
 Test the app with various messages to ensure it works for ALL texts
 """
 
-import sys
-import os
-sys.path.append('backend')
+# (Removed unused imports: sys, os)
 
 def test_various_messages():
     """Test the app with different types of messages"""
@@ -36,7 +34,7 @@ def test_various_messages():
     ]
     
     try:
-        from ml_model.spam_detector import spam_detector
+        from ml_model import spam_detector
         
         results = []
         failed_messages = []
@@ -46,7 +44,12 @@ def test_various_messages():
             
             try:
                 # Get prediction
-                result = spam_detector.predict(message)
+                label, proba = spam_detector.predict_message(message)
+                result = {
+                    'prediction': label.lower(),
+                    'confidence': proba if proba is not None else 0.0,
+                    'model_version': 'in-memory'
+                }
                 
                 # Validate result structure
                 required_keys = ['prediction', 'confidence', 'model_version']
@@ -112,8 +115,7 @@ def test_various_messages():
         
     except Exception as e:
         print(f"❌ Critical error: {e}")
-        import traceback
-        traceback.print_exc()
+        # (Removed unused import: traceback)
         return False
 
 def test_edge_cases():
@@ -129,14 +131,14 @@ def test_edge_cases():
     ]
     
     try:
-        from ml_model.spam_detector import spam_detector
+        from ml_model import spam_detector
         
         for i, case in enumerate(edge_cases, 1):
             print(f"\n📝 Edge Case {i}: {type(case).__name__} - {case}")
             
             try:
-                result = spam_detector.predict(case)
-                print(f"   ✅ Handled gracefully: {result['prediction']} ({result['confidence']*100:.1f}%)")
+                label, proba = spam_detector.predict_message(case)
+                print(f"   ✅ Handled gracefully: {label} ({(proba if proba is not None else 0.0)*100:.1f}%)")
             except Exception as e:
                 print(f"   ⚠️ Error (expected): {str(e)}")
         

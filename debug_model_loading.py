@@ -46,7 +46,7 @@ def debug_model_loading():
             print(f"   Original: {test_message}")
             print(f"   Processed: {processed}")
             
-            features = vectorizer.transform([processed])
+            features = vectorizer.transform([processed]).toarray()
             prediction = model.predict(features)[0]
             probabilities = model.predict_proba(features)[0]
             
@@ -107,7 +107,29 @@ def debug_spam_detector():
             return False
         else:
             print("✅ Using trained models!")
-            return True
+
+        # Deep check: test all consensus models individually
+        print("\n🔬 Deep check: Testing all consensus models individually...")
+        processed = spam_detector.preprocess_text(test_message)
+        features = spam_detector.vectorizer.transform([processed]).toarray()
+        all_ok = True
+        for name, model in spam_detector.models.items():
+            try:
+                pred = model.predict(features)[0]
+                if hasattr(model, "predict_proba"):
+                    proba = model.predict_proba(features)[0]
+                    conf = max(proba)
+                else:
+                    conf = "N/A"
+                print(f"   [{name}] Prediction: {'SPAM' if pred == 1 else 'HAM'}, Confidence: {conf}")
+            except Exception as e:
+                print(f"   [{name}] ❌ ERROR: {e}")
+                all_ok = False
+        if all_ok:
+            print("✅ All consensus models predicted successfully!")
+        else:
+            print("❌ One or more consensus models failed to predict.")
+        return all_ok
             
     except Exception as e:
         print(f"❌ Error with SpamDetector: {e}")

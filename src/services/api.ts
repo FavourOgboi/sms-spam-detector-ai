@@ -296,7 +296,8 @@ export const authService = {
 // Prediction Services
 export const predictionService = {
   // Flask /api/predict endpoint
-  async predictSpam(message: string): Promise<ApiResponse<PredictionResult>> {
+  // Updated: expects EnsemblePredictionResult from backend
+  async predictSpam(message: string): Promise<ApiResponse<import('../types').EnsemblePredictionResult>> {
     try {
       console.log('🔮 API Service: Making prediction request');
       console.log('📤 Message length:', message.length);
@@ -318,9 +319,9 @@ export const predictionService = {
       if (response.data.success) {
         const predictionData = response.data.data;
 
-        // Validate prediction data structure
-        if (!predictionData.prediction || typeof predictionData.confidence !== 'number') {
-          console.warn('⚠️  Invalid prediction data structure:', predictionData);
+        // Validate ensemble prediction data structure
+        if (!predictionData.consensus || !predictionData.model_results) {
+          console.warn('⚠️  Invalid ensemble prediction data structure:', predictionData);
         }
 
         return {
@@ -373,13 +374,27 @@ export const predictionService = {
       }
     } catch (error: any) {
       console.error('❌ Explanation error:', error);
-      console.error('Error details:', error.response?.data);
+      // console.error('Error details:', error.response?.data);
+      console.error('Full error object:', error);
       const errorMessage = error.response?.data?.error || 'Unable to explain prediction. Please try again.';
       return {
         success: false,
         error: errorMessage
       };
     }
+  }
+};
+
+export const getModelMetrics = async () => {
+  try {
+    const response = await api.get('/model/metrics');
+    if (response.data.success) {
+      return { success: true, data: response.data.data };
+    } else {
+      return { success: false, error: response.data.error || 'Failed to fetch model metrics' };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.response?.data?.error || 'Failed to fetch model metrics.' };
   }
 };
 

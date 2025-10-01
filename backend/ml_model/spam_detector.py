@@ -52,10 +52,10 @@ except ImportError:
 
 class SpamDetector:
     """
-    SMS Spam Detection using trained scikit-learn model
+    SMS Spam Detection using trained scikit-learn model(s)
     
-    This class loads a pre-trained model and vectorizer to classify
-    SMS messages as spam or ham (legitimate).
+    This class loads all pre-trained models and vectorizer to classify
+    SMS messages as spam or ham (legitimate), and can aggregate results for consensus.
     """
     
     def __init__(self, model_path: str = None, vectorizer_path: str = None):
@@ -63,7 +63,7 @@ class SpamDetector:
         Initialize the spam detector with model and vectorizer paths
         
         Args:
-            model_path: Path to the trained model file (.pkl)
+            model_path: Path to the trained model file (.pkl) (main model, for legacy)
             vectorizer_path: Path to the trained vectorizer file (.pkl)
         """
         self.model = None
@@ -74,17 +74,27 @@ class SpamDetector:
         if model_path is None:
             model_path = r'C:\Users\USER\Documents\GitHub\sms-spam-detector-ai\models\main_model\clf_model.pkl'
         if vectorizer_path is None:
-            vectorizer_path = r'C:\Users\USER\Documents\GitHub\sms-spam-detector-ai\models\main_model\vectorizer.pkl'
+            # Use the vectorizer from the multi-model training (not the old main_model one)
+            vectorizer_path = r'C:\Users\USER\Documents\GitHub\sms-spam-detector-ai\ml_notebooks\main_notebook\vectorizer.pkl'
 
         self.model_path = model_path
         self.vectorizer_path = vectorizer_path
 
-        # Load model and vectorizer
+        # Multi-model support
+        self.model_names = [
+            "SVC", "KNeighbors", "MultinomialNB", "DecisionTree", "LogisticRegression",
+            "RandomForest", "AdaBoost", "Bagging", "ExtraTrees", "GradientBoosting", "XGBoost",
+            "VotingEnsemble", "StackingEnsemble"
+        ]
+        self.models = {}  # name -> model instance
+
+        # Load model(s) and vectorizer
         self.load_model()
     
     def load_model(self):
-        """Load the trained model and vectorizer from disk"""
+        """Load the trained model(s) and vectorizer from disk"""
         try:
+            # Always load the main model and vectorizer for legacy/compat
             if os.path.exists(self.model_path) and os.path.exists(self.vectorizer_path):
                 self.model = joblib.load(self.model_path)
                 self.vectorizer = joblib.load(self.vectorizer_path)
@@ -96,10 +106,24 @@ class SpamDetector:
                 print(f"Expected vectorizer at: {self.vectorizer_path}")
                 self.model = None
                 self.vectorizer = None
+
+            # Load all models for consensus
+            model_dir = r'C:\Users\USER\Documents\GitHub\sms-spam-detector-ai\ml_notebooks\main_notebook'
+            for name in self.model_names:
+                model_file = os.path.join(model_dir, f"model_{name}.pkl")
+                if os.path.exists(model_file):
+                    try:
+                        self.models[name] = joblib.load(model_file)
+                        print(f"Loaded model: {name} from {model_file}")
+                    except Exception as e:
+                        print(f"Error loading model {name}: {e}")
+                else:
+                    print(f"Model file not found for {name}: {model_file}")
         except Exception as e:
-            print(f"Error loading model: {str(e)}")
+            print(f"Error loading model(s): {str(e)}")
             self.model = None
             self.vectorizer = None
+            self.models = {}
     
     def preprocess_text(self, text: str) -> str:
         """
@@ -871,6 +895,96 @@ class SpamDetector:
             Human-readable explanation summary
         """
         return self._generate_model_summary(features, prediction)
+
+    def predict_consensus(self, message: str) -> Dict[str, any]:
+        """
+        Predict using all loaded models and return consensus result.
+
+        Args:
+            message: SMS message text to classify
+
+        Returns:
+            Dictionary containing consensus prediction, confidence, model results, and summary
+        """
+        import collections
+        start_time = time.time()
+        processed_message = self.preprocess_text(message)
+        features = self.vectorizer.transform([processed_message]).toarray() if self.vectorizer else None
+
+        model_results = {}
+        votes = []
+        confidences = []
+        weighted_sum = 0.0
+        total_weight = 0.0
+
+        for name, model in self.models.items():
+            try:
+                if features is not None:
+                    pred = model.predict(features)[0]
+                    if hasattr(model, "predict_proba"):
+                        proba = model.predict_proba(features)[0][1]
+                        conf = float(proba)
+                    elif hasattr(model, "decision_function"):
+                        df = model.decision_function(features)
+                        conf = float(1 / (1 + np.exp(-df)))
+                    else:
+                        conf = 0.5
+                    label = "spam" if pred == 1 else "ham"
+                    model_results[name] = {
+                        "prediction": label,
+                        "confidence": conf
+                    }
+                    votes.append(label)
+                    confidences.append(conf)
+                    # For weighted vote: spam=1, ham=0
+                    weighted_sum += conf if label == "spam" else (1 - conf)
+                    total_weight += 1.0
+            except Exception as e:
+                model_results[name] = {
+                    "prediction": "error",
+                    "confidence": 0.0,
+                    "error": str(e)
+                }
+
+        # Majority vote
+        vote_counts = collections.Counter(votes)
+        majority = vote_counts.most_common(1)[0][0] if vote_counts else "unknown"
+        majority_count = vote_counts[majority] if majority != "unknown" else 0
+        model_count = len([v for v in votes if v in ["spam", "ham"]])
+        spam_votes = vote_counts.get("spam", 0)
+        ham_votes = vote_counts.get("ham", 0)
+
+        # Weighted vote (average confidence for spam/ham)
+        weighted_vote = "spam" if weighted_sum / total_weight >= 0.5 else "ham" if total_weight > 0 else "unknown"
+
+        # Consensus confidence: percent of models agreeing with majority
+        consensus_confidence = round(majority_count / model_count * 100, 1) if model_count > 0 else 0.0
+
+        # Plain-language summary
+        summary = ""
+        if majority in ["spam", "ham"]:
+            summary += f"Most models ({majority_count} out of {model_count}) think this message is {majority.upper()}. "
+            summary += f"Consensus confidence: {consensus_confidence}%. "
+            if majority == "spam":
+                summary += "This is likely because the message contains words or patterns often found in spam."
+            else:
+                summary += "This is likely because the message looks like a normal, personal message."
+        else:
+            summary += "The models could not agree on a result."
+
+        return {
+            "consensus": {
+                "majority_vote": majority.capitalize(),
+                "weighted_vote": weighted_vote.capitalize(),
+                "spam_votes": spam_votes,
+                "ham_votes": ham_votes,
+                "model_count": model_count,
+                "confidence": consensus_confidence,
+                "summary": summary
+            },
+            "model_results": model_results,
+            "processing_time_ms": int((time.time() - start_time) * 1000)
+        }
 
 # Global instance for the Flask app
 spam_detector = SpamDetector()

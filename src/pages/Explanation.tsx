@@ -6,15 +6,15 @@ const Explanation: React.FC = () => {
   const features = [
     {
       icon: Brain,
-      title: 'Advanced AI Algorithm',
-      description: 'Our model uses cutting-edge natural language processing and deep learning techniques to analyze message patterns, keywords, and linguistic features that commonly appear in spam messages.',
+      title: 'Ensemble Machine Learning',
+      description: 'SMS Guard uses multiple classic machine learning models (Random Forest, Naive Bayes, etc.) working together to analyze message patterns, keywords, and linguistic features that commonly appear in spam messages.',
       color: 'bg-gradient-to-br from-blue-500 to-blue-600',
       iconColor: 'text-white'
     },
     {
       icon: Database,
-      title: 'Comprehensive Training Data',
-      description: 'Trained on millions of real SMS messages from diverse sources, ensuring high accuracy and low false positive rates across different message types and languages.',
+      title: 'Real-World SMS Dataset',
+      description: 'Trained on thousands of real SMS messages from public datasets and real-world sources, ensuring practical accuracy and low false positive rates for common message types.',
       color: 'bg-gradient-to-br from-green-500 to-green-600',
       iconColor: 'text-white'
     },
@@ -128,8 +128,9 @@ const Explanation: React.FC = () => {
             How <span className="bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent">SMS Guard</span> Works
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">
-            Discover the advanced technology and machine learning algorithms that power this 
-            state-of-the-art SMS spam detection system
+            <b>How SMS Guard Works:</b> Our system uses multiple machine learning models (ensemble voting) to analyze your message. Each model votes "spam" or "ham" and provides a confidence score. The final result is based on the majority vote, but also considers how confident the models are and how much they agree.<br /><br />
+            <b>How to Interpret Results:</b> High confidence means strong model agreement; low confidence means the models are split or unsure. Spam indicators include words like "urgent," "prize," "free," or "click." Ham indicators include words like "meeting," "thanks," or names of known contacts. If in doubt, do not click links or provide personal information.<br /><br />
+            <b>Model Performance Metrics:</b> Accuracy, precision, and processing time are shown based on real system performance. All analysis is done securely and in real-time, with no permanent storage of your messages.
           </p>
         </div>
       </motion.div>

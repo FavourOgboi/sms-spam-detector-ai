@@ -3,9 +3,7 @@
 Simple test to verify the app works with various messages
 """
 
-import sys
-import os
-sys.path.append('backend')
+# (Removed unused imports: sys, os)
 
 def test_simple_messages():
     """Test with a few different message types"""
@@ -23,7 +21,7 @@ def test_simple_messages():
     ]
     
     try:
-        from ml_model.spam_detector import spam_detector
+        from ml_model import spam_detector
         
         print("✅ SpamDetector loaded successfully")
         
@@ -31,24 +29,19 @@ def test_simple_messages():
             print(f"\n📝 Test {i}: '{message}'")
             
             try:
-                result = spam_detector.predict(message)
-                
-                print(f"   🤖 Prediction: {result['prediction'].upper()}")
-                print(f"   🎯 Confidence: {result['confidence']*100:.1f}%")
-                print(f"   ⚡ Model: {result['model_version']}")
-                
+                label, proba = spam_detector.predict_message(message)
+                print(f"   🤖 Prediction: {label.upper()}")
+                print(f"   🎯 Confidence: {(proba if proba is not None else 0.0)*100:.1f}%")
+                print(f"   ⚡ Model: in-memory")
                 # Check if result is valid
                 valid = (
-                    result['prediction'] in ['spam', 'ham', 'error'] and
-                    0.0 <= result['confidence'] <= 1.0 and
-                    'model_version' in result
+                    label.lower() in ['spam', 'ham', 'error'] and
+                    0.0 <= (proba if proba is not None else 0.0) <= 1.0
                 )
-                
                 if valid:
                     print(f"   ✅ Valid result")
                 else:
                     print(f"   ❌ Invalid result")
-                    
             except Exception as e:
                 print(f"   ❌ Error: {e}")
         
@@ -57,8 +50,7 @@ def test_simple_messages():
         
     except Exception as e:
         print(f"❌ Failed to load SpamDetector: {e}")
-        import traceback
-        traceback.print_exc()
+        # (Removed unused import: traceback)
         return False
 
 def main():

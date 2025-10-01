@@ -7,7 +7,7 @@ This module handles SMS spam prediction endpoints.
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import User, Prediction, db
-from ml_model.spam_detector import spam_detector
+from ml_model.spam_detector_multi import predict_consensus, get_best_accuracy, explain_consensus_prediction
 import time
 
 predictions_bp = Blueprint('predictions', __name__)
@@ -54,35 +54,27 @@ def predict_spam():
                 'error': 'Message too long. Maximum 1000 characters allowed.'
             }), 400
         
-        # Make prediction using the ML model
-        start_time = time.time()
-        prediction_result = spam_detector.predict(message)
+        # Make consensus prediction using all models
+        consensus_result = predict_consensus(message)
 
-        # Generate basic explanation (top 5 features for quick display)
-        try:
-            explanation_result = spam_detector.explain_prediction(message, num_features=5)
-            basic_explanation = None
+        consensus = consensus_result["consensus"]
+        model_results = consensus_result["model_results"]
+        # If model_results is a list, convert to object with model names as keys
+        if isinstance(model_results, list):
+            model_results = {f"Model_{i+1}": res for i, res in enumerate(model_results)}
+        majority_prediction = consensus.get("majority_vote", "unknown").lower()
+        consensus_confidence = consensus.get("confidence", 0.0)
+        # Convert percentage to probability for DB constraint
+        db_confidence = consensus_confidence / 100.0
 
-            if explanation_result.get('success') and explanation_result.get('explanation'):
-                # Extract top features for basic display
-                features = explanation_result['explanation'].get('features', [])
-                basic_explanation = {
-                    'method': explanation_result['explanation'].get('method', 'Unknown'),
-                    'summary': explanation_result['explanation'].get('summary', ''),
-                    'top_features': features[:5]  # Top 5 for basic display
-                }
-        except Exception as e:
-            print(f"Basic explanation error: {e}")
-            basic_explanation = None
-
-        # Create prediction record
+        # Create prediction record (store majority vote and confidence)
         prediction = Prediction(
             user_id=current_user_id,
             message=message,
-            prediction=prediction_result['prediction'],
-            confidence=prediction_result['confidence'],
-            processing_time_ms=prediction_result.get('processing_time_ms'),
-            model_version=prediction_result.get('model_version')
+            prediction=majority_prediction,
+            confidence=db_confidence,
+            processing_time_ms=None,
+            model_version="N/A"
         )
 
         db.session.add(prediction)
@@ -90,14 +82,19 @@ def predict_spam():
 
         # Prepare response data
         response_data = prediction.to_dict()
+        response_data["consensus"] = consensus
+        response_data["model_results"] = model_results
 
-        # Add basic explanation if available
-        if basic_explanation:
-            response_data['explanation'] = basic_explanation
-
+        # Add top-level prediction and confidence for frontend compatibility
+        response_data = {
+            "consensus": consensus,
+            "model_results": model_results,
+            "prediction": consensus.get("majority_vote", "unknown"),
+            "confidence": consensus.get("confidence", 0.0)
+        }
         return jsonify({
-            'success': True,
-            'data': response_data
+            "success": True,
+            "data": response_data
         }), 200
         
     except Exception as e:
@@ -108,27 +105,47 @@ def predict_spam():
             'error': 'Prediction failed. Please try again.'
         }), 500
 
-@predictions_bp.route('/model/info', methods=['GET'])
+@predictions_bp.route('/model/accuracy', methods=['GET'])
 @jwt_required()
-def get_model_info():
+def get_model_accuracy():
     """
-    Get ML model information
-    Expected: GET /api/model/info
+    Get best model accuracy for dashboard
+    Expected: GET /api/model/accuracy
     Headers: Authorization: Bearer <token>
-    Returns: { "success": boolean, "data": ModelInfo, "error"?: string }
+    Returns: { "success": boolean, "data": { "accuracy": float }, "error"?: string }
     """
     try:
-        model_info = spam_detector.get_model_info()
-        
+        accuracy = get_best_accuracy()
         return jsonify({
             'success': True,
-            'data': model_info
+            'data': { 'accuracy': accuracy }
         }), 200
-        
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': 'Failed to fetch model information'
+            'error': 'Failed to fetch model accuracy'
+        }), 500
+
+@predictions_bp.route('/model/metrics', methods=['GET'])
+@jwt_required()
+def get_model_metrics():
+    """
+    Get per-model accuracy and metrics
+    Expected: GET /api/model/metrics
+    Headers: Authorization: Bearer <token>
+    Returns: { "success": boolean, "data": { [modelName]: { accuracy, ... } }, "error"?: string }
+    """
+    try:
+        from ml_model.spam_detector_multi import get_all_metrics
+        metrics = get_all_metrics()
+        return jsonify({
+            'success': True,
+            'data': metrics
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch model metrics'
         }), 500
 
 @predictions_bp.route('/explain', methods=['POST'])
@@ -174,9 +191,9 @@ def explain_prediction():
                 'error': 'Message too long. Maximum 1000 characters allowed.'
             }), 400
 
-        # Generate explanation using the ML model
+        # Generate explanation using the consensus model
         print(f"EXPLAIN: Generating explanation for message: {message[:50]}...")
-        explanation_result = spam_detector.explain_prediction(message, num_features)
+        explanation_result = explain_consensus_prediction(message, num_features)
         print(f"EXPLAIN: Result success: {explanation_result.get('success', False)}")
 
         if explanation_result.get('success'):

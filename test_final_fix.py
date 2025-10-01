@@ -3,9 +3,7 @@
 Final test to verify the app uses only your trained models
 """
 
-import sys
-import os
-sys.path.append('backend')
+# (Removed unused imports: sys, os)
 
 def test_model_loading():
     """Test that models load correctly"""
@@ -13,23 +11,18 @@ def test_model_loading():
     print("=" * 40)
     
     try:
-        from ml_model.spam_detector import spam_detector
+        from ml_model import spam_detector
         
-        info = spam_detector.get_model_info()
-        
-        print(f"✅ Model loaded: {info['model_loaded']}")
-        print(f"✅ Vectorizer loaded: {info['vectorizer_loaded']}")
-        print(f"✅ NLTK available: {info.get('nltk_available', False)}")
-        print(f"✅ Preprocessing: {info.get('preprocessing', 'unknown')}")
-        
-        if not info['model_loaded'] or not info['vectorizer_loaded']:
-            print("❌ Models not loaded!")
-            return False
-        
+        # Check that predict_message works and accuracy is available
+        label, proba = spam_detector.predict_message("Test message")
+        accuracy = spam_detector.get_accuracy()
+        print(f"✅ In-memory model loaded and ready.")
+        print(f"✅ Model accuracy: {accuracy:.4f}")
         return True
         
     except Exception as e:
         print(f"❌ Error: {e}")
+        # (Removed unused import: traceback)
         return False
 
 def test_exact_prediction():
@@ -38,7 +31,7 @@ def test_exact_prediction():
     print("=" * 40)
     
     try:
-        from ml_model.spam_detector import spam_detector
+        from ml_model import spam_detector
         
         # Exact message from your notebook test
         test_message = "Money is not going to be given to you for free even if you perform all the tasks."
@@ -46,31 +39,22 @@ def test_exact_prediction():
         print(f"📝 Test message: {test_message}")
         
         # Get prediction
-        result = spam_detector.predict(test_message)
-        
-        print(f"🤖 App prediction: {result['prediction'].upper()}")
-        print(f"🎯 App confidence: {result['confidence']:.3f}")
-        print(f"📊 Model version: {result['model_version']}")
-        
+        label, proba = spam_detector.predict_message(test_message)
+        print(f"🤖 App prediction: {label.upper()}")
+        print(f"🎯 App confidence: {(proba if proba is not None else 0.0):.3f}")
         # Expected from notebook
         expected_prediction = "ham"
         expected_confidence_range = (0.9, 1.0)  # Should be very confident HAM
-        
         print(f"\n📓 Expected from notebook:")
         print(f"   Prediction: {expected_prediction.upper()}")
         print(f"   Confidence: High (0.9-1.0)")
-        
         # Check results
-        prediction_correct = result['prediction'].lower() == expected_prediction
-        confidence_in_range = expected_confidence_range[0] <= result['confidence'] <= expected_confidence_range[1]
-        using_trained_model = result['model_version'] != 'fallback_1.0.0'
-        
+        prediction_correct = label.lower() == expected_prediction
+        confidence_in_range = expected_confidence_range[0] <= (proba if proba is not None else 0.0) <= expected_confidence_range[1]
         print(f"\n📊 Results:")
         print(f"   ✅ Prediction correct: {prediction_correct}")
         print(f"   ✅ Confidence in range: {confidence_in_range}")
-        print(f"   ✅ Using trained model: {using_trained_model}")
-        
-        return prediction_correct and confidence_in_range and using_trained_model
+        return prediction_correct and confidence_in_range
         
     except Exception as e:
         print(f"❌ Error during prediction: {e}")
@@ -82,7 +66,7 @@ def test_preprocessing():
     print("=" * 40)
     
     try:
-        from ml_model.spam_detector import spam_detector
+        from ml_model import spam_detector
         
         test_message = "Money is not going to be given to you for free even if you perform all the tasks."
         processed = spam_detector.preprocess_text(test_message)

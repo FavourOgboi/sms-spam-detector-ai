@@ -154,20 +154,11 @@ def check_model_info():
         # This would require direct access to the spam_detector
         import sys
         sys.path.append('backend')
-        from ml_model.spam_detector import spam_detector
-        
-        model_info = spam_detector.get_model_info()
-        
-        print(f"✅ Model loaded: {model_info['model_loaded']}")
-        print(f"✅ Vectorizer loaded: {model_info['vectorizer_loaded']}")
-        print(f"✅ Model version: {model_info['model_version']}")
-        print(f"✅ LIME available: {model_info['lime_available']}")
-        print(f"✅ SHAP available: {model_info['shap_available']}")
-        print(f"📁 Model path: {model_info['model_path']}")
-        print(f"📁 Vectorizer path: {model_info['vectorizer_path']}")
-        
+        from ml_model import spam_detector
+        accuracy = spam_detector.get_accuracy()
+        print(f"✅ In-memory model loaded and ready.")
+        print(f"✅ Model accuracy: {accuracy:.4f}")
         return True
-        
     except Exception as e:
         print(f"❌ Error accessing model info: {e}")
         return False
@@ -196,9 +187,7 @@ def main():
     print("=" * 50)
     
     if model_ok:
-        print("✅ Your app is using the correct models from:")
-        print("   📁 models/main_model/clf_model.pkl")
-        print("   📁 models/main_model/vectorizer.pkl")
+        print("✅ Your app is using the new in-memory model (no saved files needed).")
         print("\n🚀 To test predictions, you need to:")
         print("   1. Start frontend: npm run dev")
         print("   2. Login to get JWT token")

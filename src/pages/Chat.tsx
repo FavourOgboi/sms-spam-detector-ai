@@ -1,212 +1,159 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Loader } from 'lucide-react';
-import { sendMessage, getSuggestions, generateMessageId, ChatMessage } from '../services/chatbotService';
+import React, { useState } from "react";
+import { MessageCircle, HelpCircle } from "lucide-react";
+
+const spamFaqs = [
+  {
+    question: "What does a delivery scam message look like?",
+    example: "USPS: Your package is pending delivery due to an unpaid shipping fee. Please update your information here to avoid return: [suspicious link]",
+    tip: "Never click links or provide info unless you’re expecting a package and can verify the sender."
+  },
+  {
+    question: "How do family emergency scam texts work?",
+    example: "Hi Grandma, it’s your grandson. I got into a car accident and need money for the hospital, please send $500 to this CashApp: [CashApp ID]",
+    tip: "Always verify with a phone call or another method before sending money."
+  },
+  {
+    question: "What are signs of a fake prize or gift card message?",
+    example: "Congratulations! You’ve won a $100 Amazon gift card! Click here to claim your prize now: [phishing link]",
+    tip: "Legitimate giveaways rarely require a fee or sensitive info. Don’t click suspicious links."
+  },
+  {
+    question: "How do overpayment/refund scams appear?",
+    example: "You’ve overpaid $50 for a recent transaction. Click here to process your refund: [fake payment link]",
+    tip: "Never provide bank details to unknown senders. Contact the company directly."
+  },
+  {
+    question: "What are unknown group text scams?",
+    example: "Hey everyone! Check out this amazing deal! [suspicious link]",
+    tip: "Don’t click links or reply. Block and delete the group."
+  },
+  {
+    question: "How do payment information scams work?",
+    example: "Your [streaming service] account payment failed. Please update your payment details here to continue watching: [fake streaming service login link]",
+    tip: "Go directly to the official website to check your account. Don’t use links in texts."
+  },
+  {
+    question: "What are boss/colleague impersonation scams?",
+    example: "Hi, it’s [Boss’s Name], and I need you to purchase $500 in gift cards as soon as possible for a client and send me the codes. Let me know when done.",
+    tip: "Always verify unusual requests from your boss or colleagues through another channel."
+  },
+  {
+    question: "What are suspicious activity alert scams?",
+    example: "[Bank Name]: We’ve detected unusual login activity on your account. Verify it now: [phishing link]",
+    tip: "Don’t click links. Contact your bank using the official number."
+  },
+  {
+    question: "How do fake credit card offer scams work?",
+    example: "You’ve been pre-approved for a platinum credit card with 0% APR for 18 months! Apply now: [fake application link]",
+    tip: "Ignore unsolicited credit offers. Apply only through trusted sources."
+  },
+  {
+    question: "What are job offer scam texts?",
+    example: "URGENT HIRING! Earn $500/day working from home. No experience needed. Apply here: [scam job application link]",
+    tip: "Be wary of offers that seem too good to be true or require upfront fees."
+  },
+  {
+    question: "What are fake 2FA or verification code scams?",
+    example: "Your [account name] verification code is: 123456. If you did not request this, secure your account here: [phishing link]",
+    tip: "Don’t click links or share codes you didn’t request."
+  },
+  {
+    question: "How do government agency scam texts work?",
+    example: "IRS Notice: You have an outstanding tax issue. Immediate action is required to avoid penalties. Visit: [fake IRS website link]",
+    tip: "Government agencies rarely contact you by text. Don’t click links or provide info."
+  },
+  {
+    question: "What are subscription renewal scam texts?",
+    example: "Your [streaming service] subscription will auto-renew for $99.99. Cancel now to avoid charges: [fake cancellation link]",
+    tip: "Check your subscriptions directly. Don’t use links in texts."
+  },
+  {
+    question: "How do fake debt collector scams work?",
+    example: "URGENT: This is a final notice regarding an outstanding debt. Failure to pay will result in legal action. Contact us immediately at: [fake phone number] or visit: [suspicious link]",
+    tip: "Verify debts with your creditor. Don’t pay or provide info to unknown contacts."
+  },
+  {
+    question: "What are 'texts from your own number' scams?",
+    example: "This is [cell phone service provider], and we’re sending a special offer to our loyal customers. Click here for more details! [suspicious link]",
+    tip: "Ignore texts from your own number. It’s a spoofing scam."
+  },
+  {
+    question: "How do bank account verification scams work?",
+    example: "This is [Bank Name]. For security reasons, please verify your account information: [phishing link]",
+    tip: "Contact your bank directly. Don’t use links in texts."
+  },
+  {
+    question: "What are cryptocurrency scam texts?",
+    example: "Insiders say [Cryptocurrency] is about to explode in value. Buy now while the price is still low: [scam cryptocurrency link]",
+    tip: "Ignore investment offers from unknown sources. Don’t click links."
+  },
+  {
+    question: "How do utility bill scam texts work?",
+    example: "Your electricity service will be disconnected due to non-payment. Pay now: [fake payment link]",
+    tip: "Contact your utility provider directly. Don’t pay through links in texts."
+  },
+  {
+    question: "What are overdue toll fee scam texts?",
+    example: "E-Toll Alert: You have an outstanding balance. Pay immediately to avoid penalties: [fake toll payment website]",
+    tip: "Check your toll account directly. Don’t use links in texts."
+  },
+  {
+    question: "How do account reactivation scam texts work?",
+    example: "Your [social media platform] account has been temporarily locked. Reactivate it here: [fake login link]",
+    tip: "Go to the official website to check your account. Don’t use links in texts."
+  }
+];
 
 const Chat: React.FC = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Add welcome message
-    const welcomeMessage: ChatMessage = {
-      id: generateMessageId(),
-      text: "👋 Hi! I'm your SMS Guard assistant. I can help you understand spam messages and how to stay safe. What would you like to know?",
-      sender: 'bot',
-      timestamp: new Date()
-    };
-    setMessages([welcomeMessage]);
-
-    // Load suggestions
-    loadSuggestions();
-  }, []);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const loadSuggestions = async () => {
-    const response = await getSuggestions();
-    if (response.success && response.data) {
-      setSuggestions(response.data.suggestions);
-    }
-  };
-
-  const handleSendMessage = async (messageText?: string) => {
-    const textToSend = messageText || inputMessage.trim();
-    
-    if (!textToSend || isLoading) return;
-
-    // Add user message
-    const userMessage: ChatMessage = {
-      id: generateMessageId(),
-      text: textToSend,
-      sender: 'user',
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
-    setIsLoading(true);
-
-    try {
-      // Send to chatbot
-      const response = await sendMessage(textToSend);
-
-      if (response.success && response.data) {
-        // Add bot response
-        const botMessage: ChatMessage = {
-          id: generateMessageId(),
-          text: response.data.response,
-          sender: 'bot',
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, botMessage]);
-      } else {
-        // Add error message
-        const errorMessage: ChatMessage = {
-          id: generateMessageId(),
-          text: `Sorry, I encountered an error: ${response.error || 'Unknown error'}`,
-          sender: 'bot',
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, errorMessage]);
-      }
-    } catch (error) {
-      const errorMessage: ChatMessage = {
-        id: generateMessageId(),
-        text: 'Sorry, I encountered an error. Please try again.',
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const handleSuggestionClick = (suggestion: string) => {
-    handleSendMessage(suggestion);
-  };
+  const [selectedFaq, setSelectedFaq] = useState<number | null>(null);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
-              <MessageCircle className="w-8 h-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">SMS Guard Assistant</h1>
-              <p className="text-gray-600">Ask me anything about spam detection and staying safe</p>
-            </div>
-          </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8">
+      {/* Section 1: Upcoming AI Chatbot */}
+      <div className="bg-white rounded-2xl shadow-xl p-10 flex flex-col items-center mb-10">
+        <div className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mb-4">
+          <MessageCircle className="w-12 h-12 text-white" />
         </div>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">AI Chatbot (Upcoming)</h1>
+        <p className="text-gray-600 text-center mb-4">
+          This section is reserved for a future AI-powered assistant.<br />
+          The intention is to provide users with a smart, interactive chatbot that can answer questions, offer guidance, and help you stay safe from SMS spam and scams.<br />
+          Please check back in a future update!
+        </p>
+        <span className="inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+          Coming Soon 🚀
+        </span>
+      </div>
 
-        {/* Chat Container */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col" style={{ height: '600px' }}>
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                    message.sender === 'user'
-                      ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{message.text}</p>
-                  <p
-                    className={`text-xs mt-1 ${
-                      message.sender === 'user' ? 'text-blue-100' : 'text-gray-500'
-                    }`}
-                  >
-                    {new Date(message.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
-                </div>
-              </div>
-            ))}
-            
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-2xl px-4 py-3">
-                  <Loader className="w-5 h-5 text-gray-600 animate-spin" />
-                </div>
-              </div>
-            )}
-            
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Suggestions */}
-          {messages.length === 1 && suggestions.length > 0 && (
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-              <p className="text-sm text-gray-600 mb-2">💡 Try asking:</p>
-              <div className="flex flex-wrap gap-2">
-                {suggestions.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Input */}
-          <div className="p-4 bg-gray-50 border-t border-gray-200">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type your message..."
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={isLoading}
-              />
+      {/* Section 2: FAQ/DAQ */}
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-2xl">
+        <div className="flex items-center mb-4">
+          <HelpCircle className="w-6 h-6 text-blue-500 mr-2" />
+          <h2 className="text-xl font-bold text-gray-800">Frequently Asked Questions (SMS Spam Types)</h2>
+        </div>
+        <div className="space-y-2">
+          {spamFaqs.map((faq, idx) => (
+            <div key={idx} className="mb-2">
               <button
-                onClick={() => handleSendMessage()}
-                disabled={!inputMessage.trim() || isLoading}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                className={`w-full text-left px-4 py-2 rounded-lg border ${selectedFaq === idx ? "bg-blue-50 border-blue-300" : "bg-gray-50 border-gray-200"} hover:bg-blue-100 transition-colors font-medium`}
+                onClick={() => setSelectedFaq(selectedFaq === idx ? null : idx)}
               >
-                <Send className="w-5 h-5" />
-                Send
+                {faq.question}
               </button>
+              {selectedFaq === idx && (
+                <div className="mt-2 ml-2 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                  <div className="mb-2">
+                    <span className="font-semibold text-gray-700">Example:</span>
+                    <span className="ml-2 text-gray-700">{faq.example}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">Tip:</span>
+                    <span className="ml-2 text-blue-800">{faq.tip}</span>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-
-        {/* Info */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <p className="text-sm text-blue-800">
-            <strong>💡 Tip:</strong> This chatbot uses keyword matching to provide helpful information about spam detection. 
-            Ask about identifying spam, staying safe, or how the detector works!
-          </p>
+          ))}
         </div>
       </div>
     </div>
@@ -214,4 +161,3 @@ const Chat: React.FC = () => {
 };
 
 export default Chat;
-

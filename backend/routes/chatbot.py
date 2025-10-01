@@ -122,7 +122,7 @@ CHATBOT_RESPONSES = {
 }
 
 def token_required(f):
-    """Decorator to require valid JWT token"""
+    """Decorator to require valid JWT token, or return a helpful fallback if invalid"""
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
@@ -132,19 +132,84 @@ def token_required(f):
             try:
                 token = auth_header.split(' ')[1]
             except IndexError:
-                return jsonify({'success': False, 'error': 'Invalid token format'}), 401
+                token = None
         
         if not token:
+            # Fallback: helpful response for missing token
+            if request.path.endswith('/chat'):
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'response': (
+                            "You are not logged in, but I can still help! "
+                            "Here are some tips for handling suspicious messages:\n\n"
+                            "• Never click links from unknown senders\n"
+                            "• Don't share personal info via text\n"
+                            "• Block and delete suspicious messages\n"
+                            "• Report spam to your carrier (7726)\n\n"
+                            "If you want a more personalized analysis, please log in."
+                        ),
+                        'user': 'guest'
+                    }
+                }), 200
             return jsonify({'success': False, 'error': 'Token is missing'}), 401
         
         try:
             data = jwt.decode(token, Config.SECRET_KEY, algorithms=['HS256'])
             current_user = User.query.get(data['user_id'])
             if not current_user:
+                # Fallback: helpful response for invalid user
+                if request.path.endswith('/chat'):
+                    return jsonify({
+                        'success': True,
+                        'data': {
+                            'response': (
+                                "I couldn't verify your account, but here are some general tips:\n\n"
+                                "• Never click links from unknown senders\n"
+                                "• Don't share personal info via text\n"
+                                "• Block and delete suspicious messages\n"
+                                "• Report spam to your carrier (7726)\n\n"
+                                "For a full experience, please log in."
+                            ),
+                            'user': 'guest'
+                        }
+                    }), 200
                 return jsonify({'success': False, 'error': 'User not found'}), 401
         except jwt.ExpiredSignatureError:
+            if request.path.endswith('/chat'):
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'response': (
+                            "Your session has expired, but I can still help! "
+                            "Here are some tips for handling suspicious messages:\n\n"
+                            "• Never click links from unknown senders\n"
+                            "• Don't share personal info via text\n"
+                            "• Block and delete suspicious messages\n"
+                            "• Report spam to your carrier (7726)\n\n"
+                            "Please log in again for personalized analysis."
+                        ),
+                        'user': 'guest'
+                    }
+                }), 200
             return jsonify({'success': False, 'error': 'Token has expired'}), 401
         except jwt.InvalidTokenError:
+            if request.path.endswith('/chat'):
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'response': (
+                            "Your login token is invalid, but I can still help! "
+                            "Here are some tips for handling suspicious messages:\n\n"
+                            "• Never click links from unknown senders\n"
+                            "• Don't share personal info via text\n"
+                            "• Block and delete suspicious messages\n"
+                            "• Report spam to your carrier (7726)\n\n"
+                            "Please log in again for personalized analysis."
+                        ),
+                        'user': 'guest'
+                    }
+                }), 200
             return jsonify({'success': False, 'error': 'Invalid token'}), 401
         
         return f(current_user, *args, **kwargs)
@@ -170,13 +235,77 @@ def get_chatbot_response(message):
     # No match found, return default
     return random.choice(CHATBOT_RESPONSES['default']['responses'])
 
-@chatbot_bp.route('/chat', methods=['POST'])
-@token_required
-def chat(current_user):
+import requests
+
+def gemini_chatbot_response(user_message, context_message, context_prediction):
     """
-    Simple chatbot endpoint
+    Gemini-powered AI chatbot logic with rules:
+    - Always reference the last prediction and message
+    - Be unbiased, provide safety tips, and follow guidance rules
+    """
+    # Gemini API key (for demo, hardcoded; in production, use env variable)
+    GEMINI_API_KEY = "AIzaSyD9N-O5Xu64sK7uA7K70f8ZMxvP-iBDtmU"
+    GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+
+    # Compose prompt with rules
+    prompt = (
+        "You are an SMS spam detection assistant. "
+        "Always start by referencing the user's last analyzed message and the model's prediction. "
+        "Be unbiased: if the model is uncertain or the message is ambiguous, ask clarifying questions. "
+        "Always provide safety tips and guidance, and never encourage risky behavior. "
+        "If the user asks about spam, scams, or safety, give clear, actionable advice. "
+        "If the user asks something unrelated, politely redirect to SMS safety. "
+        "Here is the last analyzed message:\n"
+        f"\"{context_message or ''}\"\n"
+        f"Prediction: {context_prediction.get('prediction', 'N/A').upper() if context_prediction else 'N/A'} "
+        f"(Confidence: {context_prediction.get('confidence', 0)*100:.1f}%)\n\n"
+        f"User: {user_message}\n"
+        "Your response:"
+    )
+
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt}
+                ]
+            }
+        ]
+    }
+    params = {"key": GEMINI_API_KEY}
+
+    try:
+        resp = requests.post(GEMINI_API_URL, headers=headers, params=params, json=data, timeout=10)
+        resp.raise_for_status()
+        result = resp.json()
+        # Extract the generated text
+        answer = (
+            result.get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "")
+        )
+        if not answer:
+            answer = "Sorry, I couldn't generate a response at this time. Please try again."
+        return answer
+    except Exception as e:
+        print(f"Gemini API error: {e}")
+        return (
+            "Sorry, I couldn't reach the AI assistant right now. "
+            "Please try again later or ask about SMS safety and spam detection."
+        )
+
+def hybrid_chatbot_response(user_message, context_message, context_prediction):
+    # Use Gemini if API key is present, else fallback to rules
+    return gemini_chatbot_response(user_message, context_message, context_prediction)
+
+@chatbot_bp.route('/chat', methods=['POST'])
+def chat():
+    """
+    Gemini chatbot endpoint (no JWT required for Gemini-only mode)
     Expected: POST /api/chatbot/chat
-    Body: { "message": "string" }
+    Body: { "message": "string", "contextMessage": "string", "contextPrediction": { ... } }
     Returns: { "success": boolean, "data": { "response": string } }
     """
     try:
@@ -189,6 +318,8 @@ def chat(current_user):
             }), 400
         
         message = data.get('message', '').strip()
+        context_message = data.get('contextMessage', '').strip()
+        context_prediction = data.get('contextPrediction', None)
         
         if not message:
             return jsonify({
@@ -196,14 +327,14 @@ def chat(current_user):
                 'error': 'Message is required'
             }), 400
         
-        # Get chatbot response
-        response = get_chatbot_response(message)
+        # Always use Gemini for the response
+        response = hybrid_chatbot_response(message, context_message, context_prediction)
         
         return jsonify({
             'success': True,
             'data': {
                 'response': response,
-                'user': current_user.username
+                'user': 'guest'
             }
         }), 200
         
@@ -235,4 +366,3 @@ def get_suggestions(current_user):
             'suggestions': suggestions
         }
     }), 200
-

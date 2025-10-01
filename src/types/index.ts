@@ -33,6 +33,8 @@ export interface ExplanationFeature {
   direction: 'spam' | 'ham';
   abs_importance?: number;
   frequency?: number;
+  method?: string;
+  explanation?: string;
 }
 
 export interface BasicExplanation {
@@ -54,6 +56,25 @@ export interface PredictionResult {
   userId: string;
 }
 
+// For ensemble/consensus results
+export interface ConsensusResult {
+  majority_vote: string;
+  weighted_vote: string;
+  confidence: number;
+  majority_count: number;
+  total_votes: number;
+  spam_votes: number;
+  ham_votes: number;
+  model_count?: number;
+}
+
+export interface EnsemblePredictionResult {
+  consensus: ConsensusResult;
+  model_results: {
+    [modelName: string]: PredictionResult;
+  };
+}
+
 export interface UserStats {
   totalMessages: number;
   spamCount: number;
@@ -62,6 +83,11 @@ export interface UserStats {
   spamRate: number;
   avgConfidence: number;
   recentPredictions: PredictionResult[];
+  accuracyData?: {
+    trainingAccuracy?: number;
+    validationAccuracy?: number;
+    realTimeAccuracy?: number;
+  };
 }
 
 export interface ApiResponse<T> {

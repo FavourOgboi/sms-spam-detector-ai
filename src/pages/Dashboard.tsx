@@ -12,6 +12,7 @@ const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [topModel, setTopModel] = useState<{ name: string; accuracy: number } | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -37,10 +38,6 @@ const Dashboard: React.FC = () => {
     { name: 'Spam', value: stats.spamCount, color: '#EF4444' }
   ] : [];
 
-  const barData = stats ? [
-    { name: 'Ham', count: stats.hamCount, color: '#10B981' },
-    { name: 'Spam', count: stats.spamCount, color: '#EF4444' }
-  ] : [];
 
   // Generate confidence trend data from recent predictions
   const confidenceTrendData = stats ? stats.recentPredictions
@@ -61,20 +58,59 @@ const Dashboard: React.FC = () => {
       const { trainingAccuracy, validationAccuracy, realTimeAccuracy } = stats.accuracyData;
 
       // Prefer real-time accuracy if available and has enough samples
-      if (realTimeAccuracy && stats.totalMessages >= 10) {
+      if (typeof realTimeAccuracy === "number" && stats.totalMessages >= 10) {
         return realTimeAccuracy;
       }
       // Otherwise use validation accuracy
-      if (validationAccuracy) {
+      if (typeof validationAccuracy === "number") {
         return validationAccuracy;
       }
       // Fallback to training accuracy
-      return trainingAccuracy;
+      if (typeof trainingAccuracy === "number") {
+        return trainingAccuracy;
+      }
     }
 
     // Fallback to old accuracy format
-    return stats.accuracy || 0.95;
+    return typeof stats.accuracy === "number" ? stats.accuracy : 0.95;
   };
+
+  // Dynamic model accuracy for the most recent prediction
+  useEffect(() => {
+    async function fetchTopModelAccuracy() {
+      if (!stats || !stats.recentPredictions || stats.recentPredictions.length === 0) {
+        setTopModel(null);
+        return;
+      }
+      const lastPrediction = stats.recentPredictions[0];
+      if (!lastPrediction || !lastPrediction.model_results) {
+        setTopModel(null);
+        return;
+      }
+      // Find the model with the highest confidence
+      let top = { name: "", confidence: -1 };
+      Object.entries(lastPrediction.model_results).forEach(([name, res]: [string, any]) => {
+        if (typeof res.confidence === "number" && res.confidence > top.confidence) {
+          top = { name, confidence: res.confidence };
+        }
+      });
+      if (top.name) {
+        try {
+          const response = await userService.getModelMetrics?.();
+          if (response && response.success && response.data && response.data[top.name]) {
+            setTopModel({ name: top.name, accuracy: response.data[top.name].accuracy });
+          } else {
+            setTopModel(null);
+          }
+        } catch {
+          setTopModel(null);
+        }
+      } else {
+        setTopModel(null);
+      }
+    }
+    fetchTopModelAccuracy();
+  }, [stats]);
 
   const primaryAccuracy = getPrimaryAccuracy();
   if (loading) {
@@ -195,7 +231,13 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Model Accuracy</p>
-              <p className="text-3xl font-bold text-accent-500">{(primaryAccuracy * 100).toFixed(1)}%</p>
+              {topModel ? (
+                <p className="text-3xl font-bold text-accent-500">
+                  {topModel.name} — {(topModel.accuracy * 100).toFixed(2)}%
+                </p>
+              ) : (
+                <p className="text-3xl font-bold text-accent-500">{(primaryAccuracy * 100).toFixed(1)}%</p>
+              )}
             </div>
             <div className="p-3 bg-accent-100 dark:bg-accent-900/30 rounded-lg">
               <Zap className="h-6 w-6 text-accent-500" />

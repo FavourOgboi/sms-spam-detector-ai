@@ -16,7 +16,7 @@ def test_explanation_system():
     test_message = "Your account is expiring. Verify your information to continue service: [link]"
     
     try:
-        from ml_model.spam_detector import spam_detector
+        from ml_model import spam_detector
         
         print(f"📝 Test Message: {test_message}")
         print()
@@ -89,26 +89,15 @@ def test_multiple_messages():
     ]
     
     try:
-        from ml_model.spam_detector import spam_detector
+        from ml_model import spam_detector
         
         for i, message in enumerate(messages, 1):
             print(f"\n📝 Message {i}: {message[:50]}{'...' if len(message) > 50 else ''}")
             
-            # Get prediction and explanation
-            result = spam_detector.predict(message)
-            explanation = spam_detector.explain_prediction(message, num_features=3)
-            
-            print(f"   🤖 Prediction: {result['prediction'].upper()} ({result['confidence']*100:.1f}%)")
-            
-            if explanation['success']:
-                top_features = explanation['explanation']['features'][:3]
-                if top_features:
-                    feature_names = [f"'{f['feature']}'" for f in top_features]
-                    print(f"   🔍 Key words: {', '.join(feature_names)}")
-                else:
-                    print(f"   🔍 No significant features identified")
-            else:
-                print(f"   ❌ Explanation failed")
+            # Get prediction
+            label, proba = spam_detector.predict_message(message)
+            print(f"   🤖 Prediction: {label.upper()} ({(proba if proba is not None else 0.0)*100:.1f}%)")
+            print(f"   🔍 Explanation not available in stateless mode.")
         
         return True
         
