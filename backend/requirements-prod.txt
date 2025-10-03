@@ -1,5 +1,9 @@
 # Minimal requirements for production deployment
 
+# Build dependencies for scikit-learn and C-extensions
+Cython>=0.29.36
+wheel
+
 # Flask and Web Framework
 Flask==2.3.3
 Flask-SQLAlchemy==3.0.5
