@@ -4,6 +4,7 @@ app = "sms-guard-backend"
 
 [build]
   dockerfile = "backend/Dockerfile"
+  build-context = "backend=./backend"
 
 [env]
   FLASK_ENV = "production"
