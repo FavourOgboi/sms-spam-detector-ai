@@ -8,6 +8,11 @@ ENV PYTHONUNBUFFERED 1
 # Set work directory
 WORKDIR /app
 
+# Install system build tools and Python dev headers for C-extension dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential python3-dev && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 COPY backend/requirements-prod.txt /app/
 RUN pip install --upgrade pip && pip install -r requirements-prod.txt
