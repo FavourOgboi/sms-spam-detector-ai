@@ -189,7 +189,7 @@ const Profile: React.FC = () => {
         return user.profileImage;
       }
       // If it's a relative path, prepend backend URL
-      return `http://localhost:5000${user.profileImage}`;
+      return `https://sms-guard-backend.fly.dev${user.profileImage}`;
     }
 
     return null;

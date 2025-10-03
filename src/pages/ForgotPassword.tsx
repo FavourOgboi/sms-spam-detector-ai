@@ -37,7 +37,7 @@ const ForgotPassword: React.FC = () => {
       }
     } catch (err) {
       console.error('❌ Network error:', err);
-      setError('Network error. Make sure the backend is running on http://localhost:5000');
+      setError('Network error. Please try again later.');
     }
     
     setLoading(false);
