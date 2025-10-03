@@ -1,0 +1,17 @@
+services:
+  backend:
+    type: web
+    name: sms-spam-detector-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r backend/requirements-prod.txt
+    startCommand: gunicorn --factory -b 0.0.0.0:8080 backend.app:create_app
+    envVars:
+      - key: SECRET_KEY
+        value: "your-secret-key"
+      - key: JWT_SECRET_KEY
+        value: "your-jwt-secret-key"
+      - key: DATABASE_URL
+        value: "sqlite:///smsguard.db"
+      # Add other environment variables as needed
+    autoDeploy: true
