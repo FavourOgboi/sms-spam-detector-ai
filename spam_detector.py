@@ -10,7 +10,7 @@ SMS Spam Detector - Standalone Python Script
 To run:
     python spam_detector.py
 
-Author: [Your Name]
+Author: Ogboi Favour Ifeanyichukwu
 """
 
 import pandas as pd
