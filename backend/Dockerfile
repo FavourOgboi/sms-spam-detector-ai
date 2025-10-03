@@ -11,6 +11,7 @@ WORKDIR /app
 # Install dependencies
 COPY backend/requirements-prod.txt /app/
 RUN pip install --upgrade pip && pip install -r requirements-prod.txt
+RUN pip install pandas
 
 # Copy backend code
 COPY backend/ /app/
@@ -24,4 +25,4 @@ ENV FLASK_RUN_HOST=0.0.0.0
 ENV FLASK_RUN_PORT=8080
 
 # Start the app with Gunicorn for production
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "-w", "1", "-t", "1", "app:create_app()"]
+CMD ["gunicorn", "--factory", "-b", "0.0.0.0:8080", "-w", "1", "-t", "1", "app:create_app"]
