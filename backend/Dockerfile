@@ -9,8 +9,8 @@ ENV PYTHONUNBUFFERED 1
 WORKDIR /app
 
 # Install dependencies
-COPY backend/requirements.txt /app/
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY backend/requirements-prod.txt /app/
+RUN pip install --upgrade pip && pip install -r requirements-prod.txt
 
 # Copy backend code
 COPY backend/ /app/
@@ -24,4 +24,4 @@ ENV FLASK_RUN_HOST=0.0.0.0
 ENV FLASK_RUN_PORT=8080
 
 # Start the app with Gunicorn for production
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:create_app()"]
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "-w", "1", "-t", "1", "app:create_app()"]
