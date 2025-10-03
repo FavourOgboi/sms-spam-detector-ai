@@ -3,6 +3,7 @@ services:
     type: web
     name: sms-spam-detector-backend
     env: python
+    pythonVersion: "3.11"
     plan: free
     buildCommand: pip install -r backend/requirements-prod.txt
     startCommand: gunicorn --factory -b 0.0.0.0:8080 backend.app:create_app
