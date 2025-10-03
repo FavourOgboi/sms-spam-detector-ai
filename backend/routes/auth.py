@@ -290,7 +290,7 @@ def forgot_password():
             print(f"🔍 SendGrid API Key found: {'Yes' if sendgrid_api_key else 'No'}")
             if sendgrid_api_key:
                 print("📧 Attempting to send email via SendGrid...")
-                email_sent = send_email_sendgrid(email, reset_link, sendgrid_api_key)
+                email_sent = send_email_sendgrid(user.email, reset_link, sendgrid_api_key)
                 if email_sent:
                     email_method = "SendGrid"
                     print(f"✅ SendGrid email sent successfully!")
@@ -306,7 +306,7 @@ def forgot_password():
                 if current_app.config.get('MAIL_USERNAME') and current_app.config.get('MAIL_PASSWORD'):
                     mail = current_app.extensions.get('mail')
                     if mail:
-                        email_sent = send_email_flask_mail(email, reset_link, mail)
+                        email_sent = send_email_flask_mail(user.email, reset_link, mail)
                         if email_sent:
                             email_method = "Flask-Mail"
             except Exception as mail_err:
@@ -585,7 +585,3 @@ def reset_password():
             'success': False,
             'error': 'Failed to reset password'
         }), 500
-
-
-
-
