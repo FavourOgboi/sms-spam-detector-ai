@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -15,7 +15,10 @@ RUN apt-get update && \
 
 # Install dependencies
 COPY backend/requirements-prod.txt /app/
-RUN pip install --upgrade pip && pip install -r requirements-prod.txt
+# Install numpy and Cython first to ensure scikit-learn builds correctly
+RUN pip install --upgrade pip && \
+    pip install numpy==1.24.3 Cython>=0.29.36 wheel && \
+    pip install -r requirements-prod.txt
 RUN pip install pandas
 
 # Copy backend code
