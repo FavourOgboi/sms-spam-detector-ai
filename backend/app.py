@@ -71,7 +71,7 @@ def create_app():
         print(f"Created upload folder: {upload_folder}")
     
     
-    from models import db
+    from backend.models import db
     db.init_app(app)
     jwt.init_app(app)
     mail.init_app(app)
@@ -89,13 +89,13 @@ def create_app():
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
     # Import models to ensure they are registered
-    from models import User, Prediction, PasswordResetToken
+    from backend.models import User, Prediction, PasswordResetToken
 
     # Register blueprints
-    from routes.auth import auth_bp
-    from routes.predictions import predictions_bp
-    from routes.users import users_bp
-    from routes.chatbot import chatbot_bp
+    from backend.routes.auth import auth_bp
+    from backend.routes.predictions import predictions_bp
+    from backend.routes.users import users_bp
+    from backend.routes.chatbot import chatbot_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(predictions_bp, url_prefix='/api')
@@ -165,7 +165,7 @@ def create_app():
         print("Database initialized")
 
         # Check existing users
-        from models import User
+        from backend.models import User
         users = User.query.all()
         print(f"Current users in database: {len(users)}")
         for user in users:
