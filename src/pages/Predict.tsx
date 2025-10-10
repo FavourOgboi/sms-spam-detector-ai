@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { History, Lightbulb, Send } from "lucide-react";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
-import { predictionService, userService } from "../services/api";
+import { usePredictionService, useUserService } from "../services/api";
 import { EnsemblePredictionResult, PredictionResult } from "../types";
 // Simple modal for history
 const HistoryModal: React.FC<{
@@ -48,12 +48,15 @@ const Predict: React.FC = () => {
   const [history, setHistory] = useState<PredictionResult[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  const { predictSpam, explainPrediction } = usePredictionService();
+  const { getUserPredictions } = useUserService();
+
   // Fetch history when modal opens
   const handleOpenHistory = async () => {
     setShowHistory(true);
     setLoadingHistory(true);
     try {
-      const res = await userService.getUserPredictions();
+      const res = await getUserPredictions();
       if (res.success && res.data) setHistory(res.data.slice(0, 20));
       else setHistory([]);
     } catch {
@@ -78,7 +81,7 @@ const Predict: React.FC = () => {
     setLoadingExplanation(true);
     setError("");
     try {
-      const response = await predictionService.explainPrediction(message, 10);
+      const response = await explainPrediction(message, 10);
       if (response.success && response.data) {
         setExplanation(response.data);
       } else {
@@ -103,7 +106,7 @@ const Predict: React.FC = () => {
     setExplanation(null);
 
     try {
-      const response = await predictionService.predictSpam(message);
+      const response = await predictSpam(message);
       if (response.success && response.data) {
         setEnsembleResult(response.data);
       } else {

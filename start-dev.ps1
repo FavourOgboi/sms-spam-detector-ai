@@ -6,7 +6,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 Write-Host "Starting Backend Server..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend; python app.py" -WindowStyle Normal
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend; python -m app" -WindowStyle Normal
 
 Write-Host "Waiting 8 seconds for backend to start..." -ForegroundColor Yellow
 Start-Sleep -Seconds 8

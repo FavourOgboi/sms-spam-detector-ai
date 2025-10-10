@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Filter, MessageSquare, AlertTriangle, CheckCircle, Calendar, Download } from 'lucide-react';
-import { userService } from '../services/api';
+import { useUserService } from '../services/api';
 import { PredictionResult } from '../types/index';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 
@@ -14,10 +14,12 @@ const History: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'spam' | 'ham'>('all');
   const [downloadLoading, setDownloadLoading] = useState(false);
 
+  const { getUserPredictions } = useUserService();
+
   useEffect(() => {
     const fetchPredictions = async () => {
       try {
-        const response = await userService.getUserPredictions();
+        const response = await getUserPredictions();
         if (response.success && response.data) {
           setPredictions(response.data);
           setFilteredPredictions(response.data);

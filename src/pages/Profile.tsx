@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Modal from '../components/ui/Modal';
 import { useAuth } from '../contexts/AuthContext';
-import { userService } from '../services/api';
+import { useUserService } from '../services/api';
 
 const Profile: React.FC = () => {
   const { user, updateUser, logout } = useAuth();
@@ -17,7 +17,8 @@ const Profile: React.FC = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
-  
+  const { updateProfile, changePassword, deleteAccount } = useUserService();
+
   const [formData, setFormData] = useState({
     username: user?.username || '',
     email: user?.email || '',
@@ -50,7 +51,7 @@ const Profile: React.FC = () => {
       console.log('Updating profile with data:', updateData);
       console.log('Selected file:', selectedFile?.name);
 
-      const response = await userService.updateProfile(updateData, selectedFile);
+      const response = await updateProfile(updateData, selectedFile);
       console.log('Profile update response:', response);
 
       if (response.success && response.data) {
@@ -128,7 +129,7 @@ const Profile: React.FC = () => {
     }
 
     try {
-      const response = await userService.changePassword(passwordData);
+      const response = await changePassword(passwordData);
       if (response.success) {
         setPasswordSuccess('Password changed successfully!');
         setPasswordData({
@@ -159,7 +160,7 @@ const Profile: React.FC = () => {
     setDeleteLoading(true);
     
     try {
-      const response = await userService.deleteAccount();
+      const response = await deleteAccount();
       if (response.success) {
         logout();
         navigate('/login');
@@ -186,10 +187,22 @@ const Profile: React.FC = () => {
     if (user?.profileImage && user.profileImage !== '/pres.jpg') {
       // If it's already a full URL, use it as is
       if (user.profileImage.startsWith('http')) {
+        // Force port 8080 for localhost images, even if saved with 5000
+        if (user.profileImage.startsWith('http://localhost:5000')) {
+          return user.profileImage.replace('http://localhost:5000', 'http://localhost:8080');
+        }
         return user.profileImage;
       }
       // If it's a relative path, prepend backend URL
-  return `https://sms-guard-backend.onrender.com${user.profileImage}`;
+      // Use local backend for dev, Render for prod
+      if (user.profileImage.startsWith('/')) {
+        if (window.location.hostname === 'localhost') {
+          return `http://localhost:8080${user.profileImage}`;
+        } else {
+          return `https://sms-guard-backend.onrender.com${user.profileImage}`;
+        }
+      }
+      return '';
     }
 
     return null;

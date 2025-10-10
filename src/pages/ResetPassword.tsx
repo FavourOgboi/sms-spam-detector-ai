@@ -3,7 +3,7 @@ import { CheckCircle, Eye, EyeOff, Lock, Shield } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { authService } from '../services/api';
+import { useAuthService } from '../services/api';
 
 const ResetPassword: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -18,6 +18,7 @@ const ResetPassword: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const { resetPassword } = useAuthService();
 
   useEffect(() => {
     console.log('🔍 URL Parameters:', { token, userId });
@@ -89,7 +90,7 @@ const ResetPassword: React.FC = () => {
       console.log('🔄 Resetting password with token:', token.substring(0, 10) + '...');
       console.log('🔄 Using user ID:', userId);
 
-      const result = await authService.resetPassword(token, password, userId || undefined);
+      const result = await resetPassword(token, password, userId || undefined);
 
       if (result.success) {
         setSuccess(true);

@@ -5,8 +5,11 @@ Simple keyword-based chatbot for SMS spam detection help
 from flask import Blueprint, request, jsonify
 from functools import wraps
 import jwt
-from config import Config
-from models import User
+from backend.config import Config
+try:
+    from backend.models import User
+except ImportError:
+    from models import User
 
 chatbot_bp = Blueprint('chatbot', __name__)
 

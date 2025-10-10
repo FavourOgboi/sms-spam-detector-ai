@@ -8,7 +8,7 @@ login, register, logout, and user verification.
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from flask_mail import Message
-from models import User, PasswordResetToken, db
+from backend.models import User, PasswordResetToken, db
 import re
 import os
 from sendgrid import SendGridAPIClient
@@ -279,6 +279,12 @@ def forgot_password():
 
         # Create reset link
         reset_link = f"http://localhost:5173/reset-password?token={reset_token.token}"
+
+        # For local development, print the reset link to the console
+        print("="*60)
+        print("PASSWORD RESET LINK (FOR LOCAL DEVELOPMENT)")
+        print(f"URL: {reset_link}")
+        print("="*60)
 
         # Send email with multiple fallback options
         email_sent = False

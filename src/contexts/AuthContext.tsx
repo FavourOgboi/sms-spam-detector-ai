@@ -1,5 +1,5 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { authService } from '../services/api';
+import { useAuthService } from '../services/api';
 import { User } from '../types/index';
 
 interface AuthContextType {
@@ -29,6 +29,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Get the API service hooks inside the component
+  const { login: apiLogin, register: apiRegister, logout: apiLogout, getCurrentUser } = useAuthService();
+
   useEffect(() => {
     const initializeAuth = async () => {
       try {
@@ -42,7 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const storedUser = JSON.parse(userStr);
 
             // Verify token is still valid by calling /auth/me
-            const currentUser = await authService.getCurrentUser();
+            const currentUser = await getCurrentUser();
             if (currentUser) {
               setUser(currentUser);
             } else {
@@ -68,7 +71,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
-  }, []);
+  }, [getCurrentUser]);
 
   const login = async (usernameOrEmail: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -76,7 +79,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('📧 Username/Email:', usernameOrEmail);
       console.log('🔑 Password:', password ? '***provided***' : 'NOT PROVIDED');
 
-      const response = await authService.login({ usernameOrEmail, password });
+      const response = await apiLogin({ usernameOrEmail, password });
 
       console.log('📡 AuthService response:', response);
 
@@ -101,7 +104,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('Email:', email);
       console.log('Password:', password ? '***provided***' : 'NOT PROVIDED');
 
-      const response = await authService.register({
+      const response = await apiRegister({
         username,
         email,
         password,
@@ -126,7 +129,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
-    authService.logout();
+    apiLogout();
     setUser(null);
   };
 

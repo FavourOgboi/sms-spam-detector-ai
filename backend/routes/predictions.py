@@ -6,8 +6,11 @@ This module handles SMS spam prediction endpoints.
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import User, Prediction, db
-from ml_model.spam_detector_multi import predict_consensus, get_best_accuracy, explain_consensus_prediction, predict_weighted_consensus
+try:
+    from backend.models import User, Prediction, db
+except ImportError:
+    from models import User, Prediction, db
+from backend.ml_model.spam_detector_multi import predict_consensus, get_best_accuracy, explain_consensus_prediction, predict_weighted_consensus
 import time
 
 predictions_bp = Blueprint('predictions', __name__)
@@ -170,7 +173,7 @@ def get_model_metrics():
     Returns: { "success": boolean, "data": { [modelName]: { accuracy, ... } }, "error"?: string }
     """
     try:
-        from ml_model.spam_detector_multi import get_all_metrics
+        from backend.ml_model.spam_detector_multi import get_all_metrics
         metrics = get_all_metrics()
         return jsonify({
             'success': True,

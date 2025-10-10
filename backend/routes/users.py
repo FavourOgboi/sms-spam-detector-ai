@@ -7,7 +7,10 @@ This module handles user profile, statistics, and account management endpoints.
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
-from models import User, Prediction, UserStats, db
+try:
+    from backend.models import User, Prediction, UserStats, db
+except ImportError:
+    from models import User, Prediction, UserStats, db
 import os
 import uuid
 
@@ -195,7 +198,7 @@ def update_profile():
                     print(f"File saved to: {file_path}")
 
                     # Update user profile image with full URL
-                    user.profile_image = f'http://localhost:5000/uploads/profile_images/{filename}'
+                    user.profile_image = f'http://localhost:8080/uploads/profile_images/{filename}'
                     print(f"Profile image URL set: {user.profile_image}")
                 except Exception as e:
                     print(f"Error saving file: {e}")

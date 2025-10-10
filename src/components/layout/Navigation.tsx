@@ -35,6 +35,10 @@ const getUserInitials = (username: string, email: string) => {
 const getProfileImageSrc = (user: any) => {
   // If user has uploaded a profile image, use it
   if (user?.profileImage && user.profileImage !== '/pres.jpg') {
+    // If it's already a full URL, use it as is, but rewrite port 5000 to 8080 for localhost
+    if (user.profileImage.startsWith('http://localhost:5000')) {
+      return user.profileImage.replace('http://localhost:5000', 'http://localhost:8080');
+    }
     return user.profileImage;
   }
   // Otherwise return null to show initials

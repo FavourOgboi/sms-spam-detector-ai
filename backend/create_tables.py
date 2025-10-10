@@ -4,8 +4,8 @@ Database table creation script for SMS Spam Detector
 Creates all necessary tables including the new PasswordResetToken table
 """
 
-from app import create_app
-from models import db, User, Prediction, PasswordResetToken
+from backend.app import create_app
+from backend.models import db, User, Prediction, PasswordResetToken
 
 def create_tables():
     """Create all database tables"""

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useAuth } from '../contexts/AuthContext';
-import { userService, getModelMetrics } from '../services/api';
+import { useUserService } from '../services/api';
 import { UserStats } from '../types/index';
 
 const Dashboard: React.FC = () => {
@@ -14,10 +14,12 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState('');
   const [topModel, setTopModel] = useState<{ name: string; accuracy: number } | null>(null);
 
+  const { getUserStats } = useUserService();
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await userService.getUserStats();
+        const response = await getUserStats();
         if (response.success && response.data) {
           setStats(response.data);
         } else {

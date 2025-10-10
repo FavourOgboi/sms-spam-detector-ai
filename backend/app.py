@@ -5,6 +5,11 @@ This is the main Flask application file that initializes the app,
 configures the database, and registers all the API routes.
 """
 
+import sys
+import os
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -154,8 +159,9 @@ def create_app():
         </html>
         '''
 
-    # Serve uploaded profile images
+    # Serve uploaded profile images on both /uploads/profile_images and /api/uploads/profile_images
     @app.route('/uploads/profile_images/<filename>')
+    @app.route('/api/uploads/profile_images/<filename>')
     def uploaded_file(filename):
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
     

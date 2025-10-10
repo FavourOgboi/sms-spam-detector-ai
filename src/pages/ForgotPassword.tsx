@@ -3,7 +3,7 @@ import { ArrowLeft, Mail, Send } from 'lucide-react';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { authService } from '../services/api';
+import { useAuthService } from '../services/api';
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -11,6 +11,7 @@ const ForgotPassword: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetLinkSent, setResetLinkSent] = useState(false);
+  const { forgotPassword } = useAuthService();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +22,7 @@ const ForgotPassword: React.FC = () => {
     try {
       console.log('🔄 Sending forgot password request for:', email);
 
-      const result = await authService.forgotPassword(email);
+      const result = await forgotPassword(email);
 
       if (result.success && result.data) {
         setMessage(result.data.message || 'Password reset link sent to your email.');
