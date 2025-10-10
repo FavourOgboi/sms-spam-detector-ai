@@ -32,6 +32,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Get the API service hooks inside the component
   const { login: apiLogin, register: apiRegister, logout: apiLogout, getCurrentUser } = useAuthService();
 
+  // Only run initializeAuth once on mount, not on every render
   useEffect(() => {
     const initializeAuth = async () => {
       try {
@@ -71,7 +72,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
-  }, [getCurrentUser]);
+    // eslint-disable-next-line
+  }, []);
 
   const login = async (usernameOrEmail: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
