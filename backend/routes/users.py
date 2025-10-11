@@ -200,7 +200,6 @@ def update_profile():
                     print(f"File saved to: {file_path}")
 
                     # Update user profile image with full URL
-                    from flask import request
                     # Use request.host_url to build the correct absolute URL
                     user.profile_image = f'{request.host_url.rstrip("/")}/uploads/profile_images/{filename}'
                     print(f"Profile image URL set: {user.profile_image}")
