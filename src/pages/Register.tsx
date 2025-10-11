@@ -183,7 +183,7 @@ const Register: React.FC = () => {
 
       {/* Right Side - Registration Form */}
       <div className="w-full lg:w-1/2 bg-white dark:bg-gray-900">
-        <div className="flex items-center justify-center min-h-screen p-8">
+        <div className="flex items-center justify-center min-h-screen px-2 sm:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

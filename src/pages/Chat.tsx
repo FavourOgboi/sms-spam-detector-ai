@@ -108,7 +108,7 @@ const Chat: React.FC = () => {
   const [selectedFaq, setSelectedFaq] = useState<number | null>(null);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8 px-2 sm:px-4">
       {/* Section 1: Upcoming AI Chatbot */}
       <div className="bg-white rounded-2xl shadow-xl p-10 flex flex-col items-center mb-10">
         <div className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mb-4">

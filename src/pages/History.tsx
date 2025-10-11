@@ -115,7 +115,7 @@ const History: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-8 px-2 sm:px-4">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

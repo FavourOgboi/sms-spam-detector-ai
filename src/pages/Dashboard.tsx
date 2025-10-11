@@ -129,7 +129,7 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 px-2 sm:px-4">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

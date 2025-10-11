@@ -107,7 +107,7 @@ const Explanation: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-16">
+    <div className="max-w-7xl mx-auto space-y-16 px-2 sm:px-4">
       {/* Hero Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

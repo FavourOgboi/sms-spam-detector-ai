@@ -138,7 +138,7 @@ const Predict: React.FC = () => {
   const isFormValid = message.trim().length > 0;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 px-2 sm:px-4">
       {/* Explanation Results - always at the very top */}
       {explanation && (
         <motion.div

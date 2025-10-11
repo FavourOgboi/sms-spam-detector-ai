@@ -48,11 +48,7 @@ const Profile: React.FC = () => {
       // Don't include profileImage in updateData - let the backend handle it
       const { profileImage, ...updateData } = formData;
 
-      console.log('Updating profile with data:', updateData);
-      console.log('Selected file:', selectedFile?.name);
-
       const response = await updateProfile(updateData, selectedFile);
-      console.log('Profile update response:', response);
 
       if (response.success && response.data) {
         updateUser(response.data);
@@ -66,7 +62,6 @@ const Profile: React.FC = () => {
         setError(response.error || 'Failed to update profile');
       }
     } catch (err) {
-      console.error('Profile update error:', err);
       setError('Failed to update profile');
     } finally {
       setLoading(false);
@@ -78,33 +73,26 @@ const Profile: React.FC = () => {
       ...prev,
       [e.target.name]: e.target.value
     }));
-    if (error) setError(''); // Clear error when user starts typing
+    if (error) setError('');
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         setError('Please select a valid image file');
         return;
       }
-      
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setError('Image size must be less than 5MB');
         return;
       }
-
       setSelectedFile(file);
-      
-      // Create preview URL
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreviewUrl(e.target?.result as string);
       };
       reader.readAsDataURL(file);
-      
       if (error) setError('');
     }
   };
@@ -115,7 +103,6 @@ const Profile: React.FC = () => {
     setPasswordError('');
     setPasswordSuccess('');
 
-    // Validate passwords
     if (passwordData.newPassword.length < 6) {
       setPasswordError('New password must be at least 6 characters long');
       setPasswordLoading(false);
@@ -158,7 +145,7 @@ const Profile: React.FC = () => {
 
   const handleDeleteAccount = async () => {
     setDeleteLoading(true);
-    
+
     try {
       const response = await deleteAccount();
       if (response.success) {
@@ -180,21 +167,14 @@ const Profile: React.FC = () => {
   };
 
   const getProfileImageSrc = () => {
-    // Show preview if user is selecting a new image
     if (previewUrl) return previewUrl;
-
-    // Show existing profile image from backend
     if (user?.profileImage && user.profileImage !== '/pres.jpg') {
-      // If it's already a full URL, use it as is
       if (user.profileImage.startsWith('http')) {
-        // Force port 8080 for localhost images, even if saved with 5000
         if (user.profileImage.startsWith('http://localhost:5000')) {
           return user.profileImage.replace('http://localhost:5000', 'http://localhost:8080');
         }
         return user.profileImage;
       }
-      // If it's a relative path, prepend backend URL
-      // Use local backend for dev, Render for prod
       if (user.profileImage.startsWith('/')) {
         if (window.location.hostname === 'localhost') {
           return `http://localhost:8080${user.profileImage}`;
@@ -204,9 +184,10 @@ const Profile: React.FC = () => {
       }
       return '';
     }
-
     return null;
   };
+
+  const [imgError, setImgError] = useState(false);
 
   if (!user) {
     return (
@@ -223,7 +204,7 @@ const Profile: React.FC = () => {
   });
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 px-2 sm:px-4">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -245,18 +226,22 @@ const Profile: React.FC = () => {
           {/* Profile Image Section */}
           <div className="flex flex-col sm:flex-row items-center space-y-6 sm:space-y-0 sm:space-x-6 mb-8">
             <div className="relative">
-              {getProfileImageSrc() ? (
+              {getProfileImageSrc() && !imgError ? (
                 <img
                   src={getProfileImageSrc()!}
                   alt={user.username}
                   className="h-24 w-24 rounded-full object-cover border-4 border-white dark:border-gray-700 shadow-lg"
+                  onError={() => setImgError(true)}
                 />
               ) : (
-                <div className="h-24 w-24 rounded-full bg-primary-500 border-4 border-white dark:border-gray-700 shadow-lg flex items-center justify-center">
-                  <span className="text-2xl font-bold text-white">
-                    {getInitials(user.username)}
-                  </span>
-                </div>
+                <span className="h-24 w-24 rounded-full bg-primary-500 border-4 border-white dark:border-gray-700 shadow-lg flex items-center justify-center">
+                  {/* Inline SVG avatar */}
+                  <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="48" cy="48" r="48" fill="#E5E7EB"/>
+                    <circle cx="48" cy="40" r="20" fill="#9CA3AF"/>
+                    <ellipse cx="48" cy="76" rx="28" ry="16" fill="#9CA3AF"/>
+                  </svg>
+                </span>
               )}
               <input
                 type="file"
