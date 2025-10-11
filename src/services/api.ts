@@ -37,11 +37,11 @@ export const useApi = () => {
     (response) => response,
     (error) => {
       if (error.response?.status === 401) {
-        // Only log out if the request is NOT to /api/predict or /api/explain
+  // Only log out if the request is NOT to /predict or /explain
         const url = error.config?.url || "";
         if (
-          !url.includes("/api/predict") &&
-          !url.includes("/api/explain")
+          !url.includes("/predict") &&
+          !url.includes("/explain")
         ) {
           localStorage.removeItem("auth_token");
           localStorage.removeItem("user");
@@ -146,7 +146,7 @@ export const useAuthService = () => {
         if (!token) {
           return null;
         }
-        const response = await api.get("/api/auth/me");
+  const response = await api.get("/auth/me");
         if (response.data.success) {
           const user = response.data.data;
           localStorage.setItem("user", JSON.stringify(user));
