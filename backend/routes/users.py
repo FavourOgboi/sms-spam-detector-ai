@@ -198,7 +198,9 @@ def update_profile():
                     print(f"File saved to: {file_path}")
 
                     # Update user profile image with full URL
-                    user.profile_image = f'http://localhost:8080/uploads/profile_images/{filename}'
+                    from flask import request
+                    # Use request.host_url to build the correct absolute URL
+                    user.profile_image = f'{request.host_url.rstrip("/")}/uploads/profile_images/{filename}'
                     print(f"Profile image URL set: {user.profile_image}")
                 except Exception as e:
                     print(f"Error saving file: {e}")
