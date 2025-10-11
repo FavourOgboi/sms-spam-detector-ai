@@ -161,10 +161,10 @@ def create_app():
         </html>
         '''
 
-    # Serve uploaded profile images on both /uploads/profile_images and /api/uploads/profile_images
+    # Serve uploaded profile images at /uploads/profile_images/<filename>
     @app.route('/uploads/profile_images/<filename>')
-    @app.route('/api/uploads/profile_images/<filename>')
-    def uploaded_file(filename):
+    def uploaded_profile_image(filename):
+        from flask import send_from_directory
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
     
     # Create database tables
