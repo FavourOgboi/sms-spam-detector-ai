@@ -127,7 +127,7 @@ class Prediction(db.Model):
     
     # Add constraints
     __table_args__ = (
-        db.CheckConstraint('prediction IN ("spam", "ham")', name='check_prediction_values'),
+        db.CheckConstraint("prediction IN ('spam', 'ham')", name='check_prediction_values'),
         db.CheckConstraint('confidence >= 0 AND confidence <= 1', name='check_confidence_range'),
     )
     
