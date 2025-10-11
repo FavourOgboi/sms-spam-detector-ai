@@ -70,7 +70,7 @@ export const useAuthService = () => {
       credentials: AuthCredentials
     ): Promise<ApiResponse<AuthResponse>> {
       try {
-        const response = await api.post("/api/auth/login", {
+  const response = await api.post("/auth/login", {
           usernameOrEmail: credentials.usernameOrEmail,
           password: credentials.password,
         });
@@ -108,7 +108,7 @@ export const useAuthService = () => {
           email: credentials.email,
           password: credentials.password,
         };
-        const response = await api.post("/api/auth/register", requestData);
+  const response = await api.post("/auth/register", requestData);
 
         if (response.data.success) {
           const { token, user } = response.data.data;
