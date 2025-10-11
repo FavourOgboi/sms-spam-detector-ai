@@ -94,96 +94,37 @@ tfidf = None
 model_results = None
 
 def load_models():
+    """
+    Loads all models and the TFIDF vectorizer from .pkl files in the models directory.
+    """
     global tfidf, model_results
     if tfidf is not None and model_results is not None:
         return
     import os
-    DATA_PATH = os.path.join(os.path.dirname(__file__), '../../ml_notebooks/main_notebook/spam.csv')
-    df = pd.read_csv(DATA_PATH, encoding='latin-1')
-    df = df.rename(columns={'v1': 'target', 'v2': 'text'})
-    df = df[['target', 'text']].dropna()
-    df['target'] = df['target'].map({'ham': 0, 'spam': 1})
-    df['transformed_text'] = df['text'].apply(transform_text)
+    import joblib
 
-    tfidf_local = TfidfVectorizer(ngram_range=(1,2), max_features=4000)
-    X = tfidf_local.fit_transform(df['transformed_text'])
-    y = df['target'].values
+    MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
+    tfidf_path = os.path.join(MODEL_DIR, "tfidf_vectorizer.pkl")
+    tfidf = joblib.load(tfidf_path)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, stratify=y, random_state=42
-    )
-
-    models = {
-        "SVC": SVC(kernel='sigmoid', gamma=1.0, probability=True, random_state=42),
-        "KNeighbors": KNeighborsClassifier(),
-        "MultinomialNB": MultinomialNB(),
-        "DecisionTree": DecisionTreeClassifier(max_depth=5, random_state=42),
-        "LogisticRegression": LogisticRegression(solver='liblinear', penalty='l1', random_state=42),
-        "RandomForest": RandomForestClassifier(n_estimators=50, random_state=42),
-        "AdaBoost": AdaBoostClassifier(n_estimators=50, random_state=42, algorithm='SAMME'),
-        "Bagging": BaggingClassifier(n_estimators=50, random_state=42),
-        "ExtraTrees": ExtraTreesClassifier(n_estimators=50, random_state=42),
-        "GradientBoosting": GradientBoostingClassifier(n_estimators=50, random_state=42),
-    }
-    if XGBClassifier is not None:
-        models["XGBoost"] = XGBClassifier(n_estimators=50, random_state=42, eval_metric='logloss')
-
-    voting = VotingClassifier(
-        estimators=[
-            ('svc', models["SVC"]),
-            ('nb', models["MultinomialNB"]),
-            ('et', models["ExtraTrees"])
-        ],
-        voting='soft'
-    )
-    stacking = StackingClassifier(
-        estimators=[
-            ('svc', models["SVC"]),
-            ('nb', models["MultinomialNB"]),
-            ('et', models["ExtraTrees"])
-        ],
-        final_estimator=RandomForestClassifier(n_estimators=50, random_state=42)
-    )
-
-    ensembles = {
-        "VotingEnsemble": voting,
-        "StackingEnsemble": stacking
-    }
-
-    def fit_and_eval(model, name):
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-        if hasattr(model, "predict_proba"):
-            y_proba = model.predict_proba(X_test)[:,1]
-        elif hasattr(model, "decision_function"):
-            df = model.decision_function(X_test)
-            y_proba = 1 / (1 + np.exp(-df))
-            y_proba = np.clip(y_proba, 0.01, 0.99)
-        else:
-            y_proba = None
-        acc = accuracy_score(y_test, y_pred)
-        prec = precision_score(y_test, y_pred)
-        rec = recall_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred)
-        roc = roc_auc_score(y_test, y_proba) if y_proba is not None else None
-        report = classification_report(y_test, y_pred, target_names=['Ham', 'Spam'])
-        return {
-            "model": model,
-            "accuracy": acc,
-            "precision": prec,
-            "recall": rec,
-            "f1": f1,
-            "roc_auc": roc,
-            "classification_report": report
-        }
+    model_names = [
+        "SVC", "KNeighbors", "MultinomialNB", "DecisionTree", "LogisticRegression",
+        "RandomForest", "AdaBoost", "Bagging", "ExtraTrees", "GradientBoosting",
+        "VotingEnsemble", "StackingEnsemble"
+    ]
+    # Add XGBoost if available
+    try:
+        from xgboost import XGBClassifier
+        model_names.append("XGBoost")
+    except ImportError:
+        pass
 
     model_results_local = {}
-    for name, model in models.items():
-        model_results_local[name] = fit_and_eval(model, name)
-    for name, model in ensembles.items():
-        model_results_local[name] = fit_and_eval(model, name)
-
-    tfidf = tfidf_local
+    for name in model_names:
+        model_path = os.path.join(MODEL_DIR, f"{name}.pkl")
+        if os.path.exists(model_path):
+            model = joblib.load(model_path)
+            model_results_local[name] = {"model": model}
     model_results = model_results_local
 
 def transform_text(text):
