@@ -194,6 +194,8 @@ def update_profile():
                 file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
 
                 try:
+                    # Ensure the upload directory exists
+                    os.makedirs(os.path.dirname(file_path), exist_ok=True)
                     file.save(file_path)
                     print(f"File saved to: {file_path}")
 
