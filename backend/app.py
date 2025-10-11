@@ -161,11 +161,6 @@ def create_app():
         </html>
         '''
 
-    # Serve uploaded profile images at /uploads/profile_images/<filename>
-    @app.route('/uploads/profile_images/<filename>')
-    def uploaded_profile_image(filename):
-        from flask import send_from_directory
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
     
     # Create database tables
     with app.app_context():
@@ -191,3 +186,9 @@ if __name__ == '__main__':
 
 # Expose app instance for gunicorn (no --factory)
 app = create_app()
+
+# Serve uploaded profile images at /uploads/profile_images/<filename>
+@app.route('/uploads/profile_images/<filename>')
+def uploaded_profile_image(filename):
+    from flask import send_from_directory
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
