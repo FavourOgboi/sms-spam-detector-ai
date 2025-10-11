@@ -249,7 +249,7 @@ export const usePredictionService = () => {
             error: "Message cannot be empty",
           };
         }
-        const response = await api.post("/api/predict", {
+  const response = await api.post("/predict", {
           message: message.trim(),
         });
         if (response.data.success) {
@@ -279,7 +279,7 @@ export const usePredictionService = () => {
       numFeatures: number = 10
     ): Promise<ApiResponse<any>> {
       try {
-        const response = await api.post("/api/explain", {
+  const response = await api.post("/explain", {
           message: message,
           num_features: numFeatures,
         });
@@ -313,7 +313,7 @@ export const useUserService = () => {
   return {
     async getUserStats(): Promise<ApiResponse<UserStats>> {
       try {
-        const response = await api.get("/api/user/stats");
+  const response = await api.get("/user/stats");
         if (response.data.success) {
           return {
             success: true,
@@ -337,7 +337,7 @@ export const useUserService = () => {
 
     async getUserPredictions(): Promise<ApiResponse<PredictionResult[]>> {
       try {
-        const response = await api.get("/api/user/predictions");
+  const response = await api.get("/user/predictions");
         if (response.data.success) {
           return {
             success: true,
@@ -374,11 +374,11 @@ export const useUserService = () => {
             }
           });
           formData.append("profileImage", profileImage);
-          response = await api.put("/api/user/profile", formData, {
+          response = await api.put("/user/profile", formData, {
             headers: { "Content-Type": "multipart/form-data" },
           });
         } else {
-          response = await api.put("/api/user/profile", profileData);
+          response = await api.put("/user/profile", profileData);
         }
         if (response.data.success) {
           let updatedUser = response.data.data;
@@ -419,7 +419,7 @@ export const useUserService = () => {
           confirmNewPassword:
             passwordData.confirmNewPassword || passwordData.newPassword,
         };
-        const response = await api.put("/api/user/change-password", requestData);
+  const response = await api.put("/user/change-password", requestData);
         if (response.data.success) {
           return {
             success: true,
@@ -442,7 +442,7 @@ export const useUserService = () => {
 
     async deleteAccount(): Promise<ApiResponse<void>> {
       try {
-        const response = await api.delete("/api/user/delete");
+  const response = await api.delete("/user/delete");
         if (response.data.success) {
           localStorage.removeItem("auth_token");
           localStorage.removeItem("user");
