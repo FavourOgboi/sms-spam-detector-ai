@@ -87,6 +87,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (response.success && response.data) {
         console.log('✅ Login successful, setting user:', response.data.user);
+        // Persist token and user for authenticated requests
+        try {
+          localStorage.setItem('auth_token', response.data.token);
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+        } catch (_) {}
         setUser(response.data.user);
         return { success: true };
       } else {
@@ -133,6 +138,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     apiLogout();
     setUser(null);
+    try {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+    } catch (_) {}
   };
 
   const updateUser = (userData: Partial<User>) => {

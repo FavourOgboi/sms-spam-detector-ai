@@ -3,8 +3,7 @@
  */
 
 import axios from "axios";
-
-const API_URL = import.meta.env.VITE_API_URL || "https://sms-guard-backend.onrender.com/api";
+import API_URL from "./api";
 
 export interface ChatMessage {
   id: string;

@@ -1,98 +1,107 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 
 const API_URL = "https://sms-spam-detector-ai-production.up.railway.app/api";
 
-export const usePredictionService = () => {
-  const predictSpam = async (data) => {
-    const response = await axios.post(`${API_URL}/predict`, data);
-    return response.data;
-  };
+// Axios instance that automatically attaches JWT token
+const http: AxiosInstance = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-  const explainPrediction = async (predictionId) => {
-    const response = await axios.get(`${API_URL}/predictions/${predictionId}/explain`);
-    return response.data;
-  };
+http.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      config.headers = config.headers || {};
+      (config.headers as any).Authorization = `Bearer ${token}`;
+    }
+  } catch (_) {
+    // ignore SSR/localStorage errors
+  }
+  return config;
+});
 
-  const getAllPredictions = async () => {
-    const response = await axios.get(`${API_URL}/predictions`);
-    return response.data;
-  };
-
-  return {
-    predictSpam,
-    explainPrediction,
-    getAllPredictions,
-  };
-};
-
-export const useUserService = () => {
-  const getUserStats = async () => {
-    const response = await axios.get(`${API_URL}/user/stats`);
-    return response.data;
-  };
-
-  const updateUserProfile = async (profileData) => {
-    const response = await axios.put(`${API_URL}/user/profile`, profileData);
-    return response.data;
-  };
-
-  const getPredictionHistory = async (page = 1, perPage = 10) => {
-    const response = await axios.get(`${API_URL}/predictions/history?page=${page}&per_page=${perPage}`);
-    return response.data;
-  };
-
-  const getUserPredictions = async (userId) => {
-    const response = await axios.get(`${API_URL}/user/${userId}/predictions`);
-    return response.data;
-  };
-
-  return {
-    getUserStats,
-    updateUserProfile,
-    getPredictionHistory,
-    getUserPredictions,
-  };
-};
-
+// Auth related API
 export const useAuthService = () => {
-  const login = async (loginData) => {
-    const response = await axios.post(`${API_URL}/auth/login`, loginData);
-    return response.data;
+  const login = async (payload: { usernameOrEmail: string; password: string; }) => {
+    const res = await axios.post(`${API_URL}/auth/login`, payload);
+    return res.data;
   };
 
-  const register = async (registerData) => {
-    const response = await axios.post(`${API_URL}/auth/register`, registerData);
-    return response.data;
+  const register = async (payload: { username: string; email: string; password: string; }) => {
+    const res = await axios.post(`${API_URL}/auth/register`, payload);
+    return res.data;
   };
 
   const logout = async () => {
-    const response = await axios.post(`${API_URL}/auth/logout`);
-    return response.data;
+    const res = await http.post(`/auth/logout`);
+    return res.data;
   };
 
   const getCurrentUser = async () => {
-    const response = await axios.get(`${API_URL}/auth/me`);
-    return response.data;
+    const res = await http.get(`/auth/me`);
+    // Backend returns { success, data: user }
+    return res.data?.data;
   };
 
-  const forgotPassword = async (data) => {
-    const response = await axios.post(`${API_URL}/forgot-password`, data);
-    return response.data;
+  const forgotPassword = async (email: string) => {
+    const res = await axios.post(`${API_URL}/auth/forgot-password`, { email });
+    return res.data;
   };
 
-  const resetPassword = async (data) => {
-    const response = await axios.post(`${API_URL}/reset-password`, data);
-    return response.data;
+  const resetPassword = async (token: string, password: string) => {
+    const res = await axios.post(`${API_URL}/auth/reset-password`, { token, password });
+    return res.data;
   };
 
-  return {
-    login,
-    register,
-    logout,
-    getCurrentUser,
-    forgotPassword,
-    resetPassword,
+  return { login, register, logout, getCurrentUser, forgotPassword, resetPassword };
+};
+
+// User related API
+export const useUserService = () => {
+  const getUserStats = async () => {
+    const res = await http.get(`/user/stats`);
+    return res.data; // { success, data }
   };
+
+  const updateUserProfile = async (profileData: Record<string, any>) => {
+    const res = await http.put(`/user/profile`, profileData);
+    return res.data;
+  };
+
+  const getPredictionHistory = async (page: number = 1, perPage: number = 10) => {
+    const res = await http.get(`/user/predictions`, { params: { page, per_page: perPage } });
+    return res.data;
+  };
+
+  const getUserPredictions = async (page: number = 1, perPage: number = 50) => {
+    const res = await http.get(`/user/predictions`, { params: { page, per_page: perPage } });
+    return res.data;
+  };
+
+  return { getUserStats, updateUserProfile, getPredictionHistory, getUserPredictions };
+};
+
+// Prediction related API
+export const usePredictionService = () => {
+  const predictSpam = async (message: string) => {
+    const res = await http.post(`/predict`, { message });
+    return res.data;
+  };
+
+  const explainPrediction = async (message: string, numFeatures: number = 10) => {
+    const res = await http.post(`/explain`, { message, num_features: numFeatures });
+    return res.data;
+  };
+
+  const getAllPredictions = async (page: number = 1, perPage: number = 50) => {
+    const res = await http.get(`/user/predictions`, { params: { page, per_page: perPage } });
+    return res.data;
+  };
+
+  return { predictSpam, explainPrediction, getAllPredictions };
 };
 
 export default API_URL;
