@@ -1,5 +1,5 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { useAuthService } from '../services/api';
+import { useAuthService, isDemoModeActive, DEMO_USER } from '../services/api';
 import { User } from '../types/index';
 
 interface AuthContextType {
@@ -36,7 +36,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // First check if we have a token in localStorage
+        // If demo mode is active, bootstrap demo auth immediately
+        if (isDemoModeActive()) {
+          try { localStorage.setItem('demo_mode', 'true'); } catch {}
+          let demoUser = DEMO_USER;
+          try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+              demoUser = { ...demoUser, ...JSON.parse(userStr) };
+            }
+            localStorage.setItem('auth_token', 'demo-token');
+            localStorage.setItem('user', JSON.stringify(demoUser));
+          } catch {}
+          setUser(demoUser);
+          return;
+        }
+
+        // Normal mode: First check if we have a token in localStorage
         const token = localStorage.getItem('auth_token');
         const userStr = localStorage.getItem('user');
 
@@ -91,6 +107,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           localStorage.setItem('auth_token', response.data.token);
           localStorage.setItem('user', JSON.stringify(response.data.user));
+          // If this is the demo account, set a flag for consistent behavior
+          if (response.data.user?.id === 'demo-user') {
+            localStorage.setItem('demo_mode', 'true');
+          } else {
+            localStorage.removeItem('demo_mode');
+          }
         } catch (_) {}
         setUser(response.data.user);
         return { success: true };
@@ -114,8 +136,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await apiRegister({
         username,
         email,
-        password,
-        confirmPassword: password
+        password
       });
 
       console.log('AuthService registration response:', response);
@@ -141,6 +162,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
+      localStorage.removeItem('demo_mode');
     } catch (_) {}
   };
 

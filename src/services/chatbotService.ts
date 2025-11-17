@@ -3,7 +3,7 @@
  */
 
 import axios from "axios";
-import API_URL from "./api";
+import API_URL, { isDemoModeActive } from "./api";
 
 export interface ChatMessage {
   id: string;
@@ -37,8 +37,17 @@ export const sendMessage = async (
   context?: { message?: string; prediction?: any }
 ): Promise<ChatResponse> => {
   try {
-    const token = localStorage.getItem("auth_token");
+    // Demo mode: return a simulated helpful reply without backend
+    if (isDemoModeActive()) {
+      const base = "This is a demo response. In a full setup, the chatbot would analyze your message and context.";
+      const tip = /http|www\.|bit\.ly|link|click/i.test(message)
+        ? "Tip: Avoid clicking shortened or unknown links."
+        : "Tip: Legitimate messages rarely pressure you to act immediately.";
+      const response = `${base}\n\nYou said: "${message}"\n${tip}`;
+      return { success: true, data: { response, user: 'demo' } };
+    }
 
+    const token = localStorage.getItem("auth_token");
     if (!token) {
       throw new Error("Not authenticated");
     }
@@ -77,6 +86,19 @@ export const sendMessage = async (
  */
 export const getSuggestions = async (): Promise<SuggestionsResponse> => {
   try {
+    if (isDemoModeActive()) {
+      return {
+        success: true,
+        data: {
+          suggestions: [
+            "How do I know if a message is spam?",
+            "Is this link safe to click?",
+            "What should I do with suspicious messages?",
+          ],
+        },
+      };
+    }
+
     const token = localStorage.getItem("auth_token");
 
     if (!token) {

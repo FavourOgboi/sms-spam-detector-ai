@@ -70,6 +70,24 @@ const Login: React.FC = () => {
     if (error) setError(''); // Clear error when user starts typing
   };
 
+  const handleDemoLogin = async () => {
+    try { localStorage.setItem('demo_mode', 'true'); } catch {}
+    setLoading(true);
+    setError('');
+    try {
+      const result = await login('demo', 'demo');
+      if (result.success) {
+        navigate('/dashboard');
+      } else {
+        setError(result.error || 'Demo login failed');
+      }
+    } catch (e) {
+      setError('Demo login failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Clean Brand Area */}
@@ -246,6 +264,15 @@ const Login: React.FC = () => {
                   'Sign In'
                 )}
               </motion.button>
+
+              <button
+                type="button"
+                onClick={handleDemoLogin}
+                disabled={loading}
+                className="w-full mt-3 bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-2 focus:ring-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                Use Demo Account (no backend required)
+              </button>
             </form>
 
             {/* Footer */}
