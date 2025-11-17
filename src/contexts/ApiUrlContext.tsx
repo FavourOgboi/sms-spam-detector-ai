@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
-const ENV_API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const ENV_API_URL = import.meta.env.VITE_API_BASE_URL || "https://sms-spam-detector-ai-production.up.railway.app";
 
 type ApiUrlContextType = {
   apiUrl: string;
