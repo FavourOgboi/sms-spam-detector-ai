@@ -1,0 +1,42 @@
+# ==============================
+# Railway Environment Variables
+# ==============================
+# Copy the lines from each section into the appropriate Railway service:
+# - Backend service (Flask API)
+# - Frontend service (Vite static site)
+# Do NOT commit secrets to Git.
+
+
+# ------------------------------
+# Backend (Flask API) - Variables
+# Service: ideal-freedom-production (or your backend service)
+# ------------------------------
+# REQUIRED - Supabase PostgreSQL connection
+DATABASE_URL=postgresql://postgres:Faviskido1!@db.tctodpkxuiuszxyeskwe.supabase.co:5432/postgres
+
+# REQUIRED - Secret keys (replace with strong random strings)
+SECRET_KEY=change-this-to-a-strong-secret
+JWT_SECRET_KEY=change-this-to-another-strong-secret
+
+# OPTIONAL
+FLASK_ENV=production
+# SENDGRID_API_KEY=your-sendgrid-api-key
+# UPLOAD_FOLDER=uploads/profile_images
+# MAX_CONTENT_LENGTH=5242880
+
+
+# ------------------------------
+# Frontend (Vite static site) - Variables
+# Service: Your Vite/Static site service
+# ------------------------------
+# REQUIRED - Point frontend to your backend API
+VITE_API_BASE_URL=https://ideal-freedom-production.up.railway.app/api
+
+# OPTIONAL - App metadata
+VITE_APP_NAME=SMS Guard
+VITE_APP_VERSION=1.0.0
+
+# After setting these:
+# 1) Save variables on Railway (each service) to trigger redeploys
+# 2) Verify backend health: https://ideal-freedom-production.up.railway.app/api/health
+# 3) Open your frontend URL and test login/register
