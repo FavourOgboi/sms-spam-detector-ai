@@ -21,9 +21,9 @@ from datetime import timedelta
 try:
     from dotenv import load_dotenv
     load_dotenv()
-    print("✅ Environment variables loaded from .env file")
+    print("Environment variables loaded from .env file")
 except ImportError:
-    print("⚠️  python-dotenv not installed, using system environment variables")
+    print("python-dotenv not installed, using system environment variables")
 
 
 jwt = JWTManager()
@@ -65,11 +65,11 @@ def create_app():
 
     # Print email configuration status
     if app.config['SENDGRID_API_KEY']:
-        print(f"📧 SendGrid configured: API key found")
+        print(f"SendGrid configured: API key found")
     elif app.config['MAIL_USERNAME'] and app.config['MAIL_PASSWORD']:
-        print(f"📧 Gmail configured: {app.config['MAIL_USERNAME']}")
+        print(f"Gmail configured: {app.config['MAIL_USERNAME']}")
     else:
-        print("⚠️  No email service configured - using development mode")
+        print("No email service configured - using development mode")
     
     # Create upload folder if it doesn't exist
     upload_folder = app.config['UPLOAD_FOLDER']
@@ -89,7 +89,7 @@ def create_app():
          supports_credentials=False,
          allow_headers=["Content-Type", "Authorization"],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-    print("🌐 CORS configured to allow all origins with full headers and methods")
+    print("CORS configured to allow all origins with full headers and methods")
     # -----------------------------------------------------------------------------------------------------------------
     
     # Create upload directory if it doesn't exist
@@ -154,7 +154,7 @@ def create_app():
         <html>
         <head><title>SMS Guard - Login</title></head>
         <body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h1>🔐 SMS Guard</h1>
+            <h1>SMS Guard</h1>
             <p>Please use the React frontend at <a href="http://localhost:5179">http://localhost:5179</a></p>
             <p>SMS Spam Detection Application</p>
         </body>
