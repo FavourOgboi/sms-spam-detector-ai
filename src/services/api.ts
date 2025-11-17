@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 
-const API_URL = "https://sms-spam-detector-ai-production.up.railway.app/api";
+const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
 // Axios instance that automatically attaches JWT token
 const http: AxiosInstance = axios.create({
